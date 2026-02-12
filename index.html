@@ -168,6 +168,31 @@
       margin-top:12px;
     }
 
+    .progressBox{
+      display:none;
+      margin-top:10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+    }
+    .progressTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .log{
+      margin-top:8px;
+      font-size:12px;
+      color:var(--muted);
+      white-space:pre-wrap;
+      max-height: 160px;
+      overflow:auto;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+
     /* Settings drawer */
     .sheetOverlay{
       position:fixed; inset:0;
@@ -229,40 +254,6 @@
       .twoCol{grid-template-columns: 1fr}
     }
 
-    .progressBox{
-      display:none;
-      margin-top:10px;
-      border:1px solid var(--border);
-      border-radius:12px;
-      padding:10px 12px;
-    }
-    .progressTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .log{
-      margin-top:8px;
-      font-size:12px;
-      color:var(--muted);
-      white-space:pre-wrap;
-      max-height: 160px;
-      overflow:auto;
-      border-top: 1px solid var(--border);
-      padding-top: 8px;
-    }
-
-    .hiddenTools{
-      position:absolute;
-      left:-9999px;
-      top:-9999px;
-      width: 1px;
-      height: 1px;
-      overflow:hidden;
-    }
-
     .banner{
       border:1px solid var(--border);
       border-radius: 14px;
@@ -272,6 +263,15 @@
     }
     .bannerTitle{font-weight:700; font-size:13px; margin-bottom:6px;}
     .banner p{margin:0; font-size:12px; color:var(--muted); line-height:1.35;}
+
+    .hiddenTools{
+      position:absolute;
+      left:-9999px;
+      top:-9999px;
+      width: 1px;
+      height: 1px;
+      overflow:hidden;
+    }
   </style>
 </head>
 <body>
@@ -288,24 +288,25 @@
   <main>
     <section class="card">
       <h2>
-        <span>Mode</span>
+        <span>Record / Upload</span>
         <span class="pill">Limit: <span class="mono" id="limitLabel">50.0 MB</span></span>
       </h2>
 
       <div class="content">
+
         <div id="secureBanner" class="banner" style="display:none">
           <div class="bannerTitle warn">iPhone camera needs HTTPS</div>
           <p>
             If you opened this from <span class="mono">Files</span> (file://), iPhone will usually block the camera.
-            Host this page on HTTPS (Netlify/GitHub Pages) and open it in Safari.
+            Host this page on HTTPS and open it in Safari.
           </p>
         </div>
 
-        <div id="formatBanner" class="banner" style="display:none">
+        <div id="mp4Banner" class="banner" style="display:none">
           <div class="bannerTitle warn">MP4 encoding not supported here</div>
           <p>
-            This browser/device can’t encode MP4 using MediaRecorder, so output will be WebM (not accepted by GorillaDesk).
-            Workaround: run this page in iPhone Safari (HTTPS) or use a server-side converter.
+            This browser/device can’t encode MP4 via MediaRecorder. Output will be WebM, which GorillaDesk won’t accept.
+            Use iPhone Safari over HTTPS (often supports MP4), or use FFmpeg/server conversion.
           </p>
         </div>
 
@@ -314,6 +315,7 @@
           <button id="tabUpload" class="tab" type="button" role="tab" aria-selected="false">📁 Upload</button>
         </div>
 
+        <!-- Record Panel -->
         <div id="recordPanel" style="margin-top:12px">
           <video id="preview" playsinline autoplay muted></video>
 
@@ -340,23 +342,21 @@
           </div>
 
           <div class="note">
-            For GorillaDesk, we try to output MP4. If MP4 isn’t supported on this device, you’ll see a warning.
+            Record as long as you want. After you stop, use Convert. Final output will be MP4 if this browser supports MP4 encoding.
           </div>
         </div>
 
+        <!-- Upload Panel -->
         <div id="uploadPanel" style="display:none; margin-top:12px">
-          <label for="fileInput">Choose a video (MP4/MOV preferred)</label>
+          <label for="fileInput">Choose a video (MP4/MOV recommended)</label>
           <input id="fileInput" type="file" accept="video/*" />
-          <div class="note">
-            Upload a video and convert it to ≤ 50MB. Output will be MP4 if supported by your browser.
-          </div>
+          <div class="note">Pick an existing video and convert it to ≤ 50MB.</div>
         </div>
 
         <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
 
         <div class="status">
-          <span class="pill">Output target: <span class="mono" id="outTargetLabel">MP4 preferred</span></span>
-          <span class="pill">Chosen output: <span class="mono" id="outMimeLabel">—</span></span>
+          <span class="pill">Preferred output: <span class="mono" id="preferredMimeLabel">—</span></span>
           <span class="pill">GorillaDesk compatible: <span class="mono" id="gdCompatLabel">—</span></span>
         </div>
 
@@ -367,14 +367,14 @@
 
         <div id="progressBox" class="progressBox">
           <div class="progressTop">
-            <div>Progress: <span class="mono" id="progressText">—</span></div>
             <div>Attempt: <span class="mono" id="attemptText">—</span></div>
+            <div>Status: <span class="mono" id="progressText">—</span></div>
           </div>
           <div class="log mono" id="progressLog"></div>
         </div>
 
         <div id="resultArea" style="margin-top:12px">
-          <div class="note">Your converted video will appear here with Save/Share.</div>
+          <div class="note">Converted output will appear here with Save/Share.</div>
         </div>
       </div>
     </section>
@@ -433,7 +433,7 @@
       <div>
         <label for="recordBitrate">Recording bitrate (kbps): <span class="mono" id="recordBitrateLabel">1500</span></label>
         <input id="recordBitrate" type="range" min="250" max="8000" step="50" value="1500" />
-        <div class="note">Affects raw recording size/quality. Final size is controlled during conversion.</div>
+        <div class="note">This affects raw recording size. Final size is controlled during conversion.</div>
       </div>
 
       <div>
@@ -449,7 +449,7 @@
         <div>
           <label>Camera Controls</label>
           <button id="torchBtn" class="btn" type="button" disabled>🔦 Torch: n/a</button>
-          <div class="note">Torch only works on some phones (usually rear camera).</div>
+          <div class="note">Torch works only on some rear cameras.</div>
         </div>
         <div>
           <label for="zoomRange">Zoom: <span class="mono" id="zoomValue">n/a</span></label>
@@ -459,7 +459,7 @@
       </div>
 
       <div class="note">
-        MP4 output requires MP4 encoding support in your browser. iPhone Safari often supports it; many Android browsers don’t.
+        MP4 output requires MP4 encoding support from your browser (MediaRecorder). If unsupported, this app will fall back to WebM.
       </div>
     </div>
   </div>
@@ -468,18 +468,19 @@
   /********************************************************************
    * 50MB Video Recorder/Converter (MP4-first)
    * - No FFmpeg. Uses canvas re-encode via MediaRecorder.
-   * - Output MP4 if MediaRecorder supports it, else fallback to WebM.
+   * - MP4 output is ONLY possible if the browser can encode MP4.
    ********************************************************************/
 
+  // GorillaDesk limit
   const MAX_BYTES = 50 * 1024 * 1024;
-  const SAFETY_BYTES = 512 * 1024;
+  const SAFETY_BYTES = 512 * 1024; // keep a little buffer under 50MB
 
   const $ = (id) => document.getElementById(id);
 
-  // UI
+  // UI refs
   const limitLabel = $("limitLabel");
   const secureBanner = $("secureBanner");
-  const formatBanner = $("formatBanner");
+  const mp4Banner = $("mp4Banner");
 
   const tabRecord = $("tabRecord");
   const tabUpload = $("tabUpload");
@@ -487,14 +488,14 @@
   const uploadPanel = $("uploadPanel");
 
   const preview = $("preview");
-  const fileInput = $("fileInput");
-
   const enableCameraBtn = $("enableCameraBtn");
   const restartPreviewBtn = $("restartPreviewBtn");
 
   const startBtn = $("startBtn");
   const stopBtn = $("stopBtn");
   const resetBtn = $("resetBtn");
+
+  const fileInput = $("fileInput");
 
   const convertBtn = $("convertBtn");
   const cancelConvertBtn = $("cancelConvertBtn");
@@ -503,21 +504,19 @@
   const recTimeLabel = $("recTimeLabel");
   const recBarFill = $("recBarFill");
 
-  const resultArea = $("resultArea");
+  const preferredMimeLabel = $("preferredMimeLabel");
+  const gdCompatLabel = $("gdCompatLabel");
 
   const progressBox = $("progressBox");
-  const progressText = $("progressText");
   const attemptText = $("attemptText");
+  const progressText = $("progressText");
   const progressLog = $("progressLog");
 
-  const outTargetLabel = $("outTargetLabel");
-  const outMimeLabel = $("outMimeLabel");
-  const gdCompatLabel = $("gdCompatLabel");
+  const resultArea = $("resultArea");
 
   // Settings
   const settingsBtn = $("settingsBtn");
   const themeBtn = $("themeBtn");
-
   const sheetOverlay = $("sheetOverlay");
   const sheet = $("sheet");
   const closeSheetBtn = $("closeSheetBtn");
@@ -537,7 +536,7 @@
   const torchLabel = $("torchLabel");
   const zoomLabel = $("zoomLabel");
 
-  // Hidden transcode elements
+  // Hidden tools for conversion
   const xCanvas = $("xCanvas");
   const xVideo = $("xVideo");
 
@@ -555,6 +554,7 @@
 
   // State
   let mode = "record";
+
   let stream = null;
   let videoTrack = null;
 
@@ -566,16 +566,15 @@
 
   let torchOn = false;
 
-  // Source blob for conversion
+  // Source blob (recorded or uploaded)
   let sourceBlob = null;
   let sourceLabel = "";
 
-  // Cancel support
+  // Cancel conversion
   let cancelRequested = false;
 
-  // Output mime selection
+  // Preferred output mime (MP4-first)
   let preferredOutputMime = "";
-  let chosenOutputMime = ""; // set during conversion/recording attempts
 
   // Helpers
   function fmtMB(bytes){ return (bytes / (1024 * 1024)).toFixed(1) + " MB"; }
@@ -587,6 +586,7 @@
   }
 
   function isSecureEnoughForCamera(){
+    // file:// on iPhone is not secure; https is.
     return window.isSecureContext === true;
   }
 
@@ -599,7 +599,7 @@
   }
 
   function pickPreferredOutputMime(){
-    // MP4 first (GorillaDesk compatible), then WebM fallback
+    // MP4 first
     const mp4Candidates = [
       "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
       "video/mp4;codecs=avc1.4D401E,mp4a.40.2",
@@ -609,6 +609,7 @@
       if (safeIsTypeSupported(t)) return t;
     }
 
+    // Fallback WebM
     const webmCandidates = [
       "video/webm;codecs=vp8,opus",
       "video/webm;codecs=vp9,opus",
@@ -618,34 +619,34 @@
       if (safeIsTypeSupported(t)) return t;
     }
 
-    return ""; // let browser decide (may still work)
+    return ""; // let browser choose (might still work)
   }
 
   function isGorillaDeskCompatibleMime(mime){
     const m = (mime || "").toLowerCase();
-    // GorillaDesk accepts mp4/mov (user reported); we treat mp4 as "yes". mov isn't produced by MediaRecorder.
-    return m.includes("video/mp4") || m.includes("video/quicktime");
+    return m.includes("video/mp4") || m.includes("video/quicktime"); // quicktime is MOV
   }
 
   function updateOutputBadges(){
-    const out = preferredOutputMime || "(browser default)";
-    outMimeLabel.textContent = out;
+    const shown = preferredOutputMime || "(browser default)";
+    preferredMimeLabel.textContent = shown;
 
-    const ok = isGorillaDeskCompatibleMime(out);
-    gdCompatLabel.textContent = ok ? "YES" : "NO";
-    gdCompatLabel.className = "mono " + (ok ? "ok" : "warn");
+    const compat = isGorillaDeskCompatibleMime(preferredOutputMime);
+    gdCompatLabel.textContent = compat ? "YES" : "NO";
+    gdCompatLabel.className = "mono " + (compat ? "ok" : "warn");
 
-    // Show warning banner if we cannot do mp4
-    const mp4Supported = safeIsTypeSupported("video/mp4") ||
-                         safeIsTypeSupported("video/mp4;codecs=avc1.42E01E,mp4a.40.2") ||
-                         safeIsTypeSupported("video/mp4;codecs=avc1.4D401E,mp4a.40.2");
+    // If we cannot do mp4, warn (because GorillaDesk rejects webm)
+    const mp4Supported =
+      safeIsTypeSupported("video/mp4") ||
+      safeIsTypeSupported("video/mp4;codecs=avc1.42E01E,mp4a.40.2") ||
+      safeIsTypeSupported("video/mp4;codecs=avc1.4D401E,mp4a.40.2");
 
-    // If preferred is NOT mp4, warn (because GorillaDesk won't accept webm)
-    formatBanner.style.display = mp4Supported ? "none" : "block";
+    mp4Banner.style.display = mp4Supported ? "none" : "block";
   }
 
   function setMode(next){
     mode = next;
+
     if (mode === "record"){
       tabRecord.classList.add("active");
       tabUpload.classList.remove("active");
@@ -661,6 +662,7 @@
       uploadPanel.style.display = "";
       recordPanel.style.display = "none";
     }
+
     updateConvertButtonState();
   }
 
@@ -671,8 +673,8 @@
   function showProgress(show){
     progressBox.style.display = show ? "block" : "none";
     if (!show){
-      progressText.textContent = "—";
       attemptText.textContent = "—";
+      progressText.textContent = "—";
       progressLog.textContent = "";
     }
   }
@@ -684,6 +686,7 @@
 
   function updateRecUI(){
     recSizeLabel.textContent = fmtMB(recordedBytes);
+
     const secs = startTs ? Math.max(0, Math.floor((Date.now() - startTs) / 1000)) : 0;
     recTimeLabel.textContent = fmtTime(secs);
 
@@ -695,7 +698,7 @@
   }
 
   function clearResult(){
-    resultArea.innerHTML = `<div class="note">Your converted video will appear here with Save/Share.</div>`;
+    resultArea.innerHTML = `<div class="note">Converted output will appear here with Save/Share.</div>`;
   }
 
   function guessExtensionForMime(mime){
@@ -703,24 +706,24 @@
     if (m.includes("video/mp4")) return "mp4";
     if (m.includes("quicktime")) return "mov";
     if (m.includes("video/webm")) return "webm";
-    return "mp4"; // default to mp4 extension, but mime should guide real compatibility
+    return "mp4";
   }
 
   function renderResult(blob, label){
     const url = URL.createObjectURL(blob);
-
     const ext = guessExtensionForMime(blob.type || preferredOutputMime || "");
-    const ok = isGorillaDeskCompatibleMime(blob.type || preferredOutputMime || "");
+    const okSize = blob.size <= (MAX_BYTES - SAFETY_BYTES);
+    const gdOk = isGorillaDeskCompatibleMime(blob.type || "");
 
     resultArea.innerHTML = `
       <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
-        <span>${label || "Final"}: <span class="mono ${blob.size <= (MAX_BYTES - SAFETY_BYTES) ? "ok" : "warn"}">${fmtMB(blob.size)}</span></span>
+        <span>${label || "Output"}: <span class="mono ${okSize ? "ok" : "warn"}">${fmtMB(blob.size)}</span></span>
         <span class="mono">${blob.type || "video/*"}</span>
       </div>
 
       <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
         <span>GorillaDesk compatible:</span>
-        <span class="mono ${ok ? "ok" : "warn"}">${ok ? "YES" : "NO (WebM not accepted)"}</span>
+        <span class="mono ${gdOk ? "ok" : "warn"}">${gdOk ? "YES" : "NO (WebM not accepted)"}</span>
       </div>
 
       <video controls playsinline style="width:100%; border-radius:14px; background:#000; margin-bottom:10px;">
@@ -732,8 +735,8 @@
         <button class="btn" id="shareBtn" type="button">📤 Share</button>
       </div>
 
-      ${ok ? "" : `<div class="note warn">
-        This output is WebM. GorillaDesk won’t accept it. Use iPhone Safari over HTTPS (so MP4 is available), or use a server converter.
+      ${gdOk ? "" : `<div class="note warn">
+        This output is WebM. GorillaDesk won’t accept it. Use iPhone Safari over HTTPS (often supports MP4) or use FFmpeg/server conversion.
       </div>`}
     `;
 
@@ -792,7 +795,9 @@
       await videoTrack.applyConstraints({ advanced: [{ zoom: Number(z) }] });
       zoomValue.textContent = Number(z).toFixed(1) + "x";
       updateRecUI();
-    }catch(e){}
+    }catch(e){
+      // ignore while sliding
+    }
   }
 
   function setupTorchZoomUI(){
@@ -878,7 +883,10 @@
 
     stream = await navigator.mediaDevices.getUserMedia(constraints);
     preview.srcObject = stream;
+
+    // iOS often needs an explicit play()
     try{ await preview.play(); }catch(_){}
+
     videoTrack = stream.getVideoTracks()[0] || null;
     setupTorchZoomUI();
   }
@@ -896,10 +904,6 @@
     try{ await startPreview(); }catch(e){ console.error(e); }
   });
 
-  recordBitrate.addEventListener("input", () => {
-    recordBitrateLabel.textContent = recordBitrate.value;
-  });
-
   // Recording
   function resetRecordingState(){
     chunks = [];
@@ -908,6 +912,12 @@
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = null;
     updateRecUI();
+  }
+
+  function bestRecorderMimeForCurrentDevice(){
+    // Use preferredOutputMime if set; else pick now
+    const mime = preferredOutputMime || pickPreferredOutputMime();
+    return mime || "";
   }
 
   async function startRecording(){
@@ -922,10 +932,7 @@
     resetRecordingState();
     clearResult();
 
-    // MP4-first recording too
-    const mimeType = preferredOutputMime || pickPreferredOutputMime();
-    chosenOutputMime = mimeType || "";
-
+    const mimeType = bestRecorderMimeForCurrentDevice();
     const options = {};
     if (mimeType) options.mimeType = mimeType;
     options.videoBitsPerSecond = Number(recordBitrate.value) * 1000;
@@ -980,7 +987,9 @@
     if (!mediaRecorder) return;
     try{
       if (mediaRecorder.state !== "inactive") mediaRecorder.stop();
-    }catch(e){ console.error(e); }
+    }catch(e){
+      console.error(e);
+    }
   }
 
   // Upload
@@ -991,6 +1000,7 @@
       updateConvertButtonState();
       return;
     }
+
     sourceBlob = f;
     sourceLabel = "Uploaded";
     cancelRequested = false;
@@ -1001,60 +1011,7 @@
     renderResult(f, "Raw (uploaded)");
   });
 
-  // Tabs
-  tabRecord.addEventListener("click", () => setMode("record"));
-  tabUpload.addEventListener("click", () => setMode("upload"));
-
-  // Buttons
-  startBtn.addEventListener("click", startRecording);
-  stopBtn.addEventListener("click", stopRecording);
-
-  resetBtn.addEventListener("click", () => {
-    resetRecordingState();
-    clearResult();
-    sourceBlob = null;
-    sourceLabel = "";
-    updateConvertButtonState();
-    resetBtn.disabled = true;
-  });
-
-  // Enable preview buttons
-  const enableCameraBtn = $("enableCameraBtn");
-  const restartPreviewBtn = $("restartPreviewBtn");
-
-  enableCameraBtn.addEventListener("click", async () => {
-    try{
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        alert("This browser does not support camera access.");
-        return;
-      }
-      if (!isSecureEnoughForCamera()){
-        alert("On iPhone, camera requires HTTPS. Hosting this page on HTTPS is the best fix.");
-      }
-
-      await startPreview();
-      await populateCameras();
-
-      if (!cameraSelect.value && cameraSelect.options[0]){
-        cameraSelect.value = cameraSelect.options[0].value;
-      }
-      await startPreview();
-
-      restartPreviewBtn.disabled = false;
-      startBtn.disabled = false;
-
-    }catch(e){
-      console.error(e);
-      alert("Could not start camera. If you opened from Files on iPhone, host it on HTTPS.");
-    }
-  });
-
-  restartPreviewBtn.addEventListener("click", async () => {
-    try{ await startPreview(); }
-    catch(e){ console.error(e); alert("Preview restart failed."); }
-  });
-
-  // Conversion (canvas re-encode)
+  // Conversion pipeline (canvas -> MediaRecorder)
   async function getVideoMeta(blob){
     return new Promise((resolve) => {
       const url = URL.createObjectURL(blob);
@@ -1063,7 +1020,11 @@
       v.muted = true;
       v.playsInline = true;
       v.onloadedmetadata = () => {
-        const meta = { duration: Number.isFinite(v.duration) ? v.duration : 0, width: v.videoWidth||0, height: v.videoHeight||0 };
+        const meta = {
+          duration: Number.isFinite(v.duration) ? v.duration : 0,
+          width: v.videoWidth || 0,
+          height: v.videoHeight || 0
+        };
         URL.revokeObjectURL(url);
         resolve(meta);
       };
@@ -1081,6 +1042,7 @@
   }
 
   function computeBitratesForTarget(durationSec, targetBytes){
+    // Keep audio small; allocate rest to video
     const audioBps = 64_000;
     const totalBps = Math.max(120_000, Math.floor((targetBytes * 8) / Math.max(1, durationSec)));
     const videoBps = Math.max(80_000, totalBps - audioBps);
@@ -1100,12 +1062,6 @@
     const idx = sorted.findIndex(t => t.w === curW && t.h === curH);
     if (idx >= 0 && idx < sorted.length - 1) return sorted[idx + 1];
     return sorted.find(t => (t.w*t.h) < area) || sorted[sorted.length - 1];
-  }
-
-  function pickRecorderMimeForConversion(){
-    // Prefer MP4; fallback WebM.
-    const best = pickPreferredOutputMime();
-    return best || "";
   }
 
   async function transcodeViaCanvas(inputBlob, outW, outH, fps, videoBps, audioBps){
@@ -1128,6 +1084,7 @@
 
     const canvasStream = xCanvas.captureStream(fps);
 
+    // Best-effort audio capture (not guaranteed everywhere)
     let mixedStream = canvasStream;
     try{
       const ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -1136,16 +1093,15 @@
       srcNode.connect(dest);
       srcNode.connect(ac.destination);
       const audioTrack = dest.stream.getAudioTracks()[0] || null;
+
       if (audioTrack){
         mixedStream = new MediaStream([...canvasStream.getVideoTracks(), audioTrack]);
       }
     }catch(_){
-      // audio capture can fail; continue video-only
+      // audio capture may fail; continue without audio
     }
 
-    const outMime = pickRecorderMimeForConversion();
-    chosenOutputMime = outMime || "(browser default)";
-
+    const outMime = bestRecorderMimeForCurrentDevice();
     const options = {};
     if (outMime) options.mimeType = outMime;
     options.videoBitsPerSecond = Math.floor(videoBps);
@@ -1160,8 +1116,11 @@
     }
 
     const outChunks = [];
-    recorder.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) outChunks.push(ev.data); };
+    recorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size > 0) outChunks.push(ev.data);
+    };
 
+    // Draw loop
     let rafId = 0;
     let lastFrameTs = 0;
     const frameInterval = 1000 / fps;
@@ -1171,6 +1130,7 @@
         try{ recorder.stop(); }catch(_){}
         return;
       }
+
       if (!lastFrameTs || (ts - lastFrameTs) >= frameInterval){
         lastFrameTs = ts;
 
@@ -1187,6 +1147,7 @@
         ctx.fillRect(0, 0, outW, outH);
         ctx.drawImage(xVideo, 0, 0, vw, vh, dx, dy, dw, dh);
       }
+
       rafId = requestAnimationFrame(drawFrame);
     }
 
@@ -1217,8 +1178,8 @@
     convertBtn.disabled = true;
 
     showProgress(true);
-    progressText.textContent = "…";
     attemptText.textContent = "—";
+    progressText.textContent = "Starting…";
     progressLog.textContent = "";
 
     const targetBytes = MAX_BYTES - SAFETY_BYTES;
@@ -1227,16 +1188,21 @@
     const durationSec = Math.max(1, Math.round(meta.duration || 1));
 
     logProgress(`${sourceLabel || "Source"} size: ${fmtMB(inputBlob.size)} | duration ~${durationSec}s | meta ${meta.width}x${meta.height}`);
+
     if (inputBlob.size <= targetBytes){
       logProgress(`Already under limit (≤ ${fmtMB(targetBytes)}).`);
       return inputBlob;
     }
 
+    // Max output resolution
     const maxRes = parseWH(convertResSelect.value);
+
+    // Min quality floor
     const [minResStr, minKbpsStr] = minQualitySelect.value.split("|");
     const minRes = parseWH(minResStr);
     const minVideoBps = Number(minKbpsStr) * 1000;
 
+    // Start tier <= maxRes and <= source
     const tiers = [
       { w: 1280, h: 720 },
       { w: 854,  h: 480 },
@@ -1248,7 +1214,8 @@
     let outW = Math.min(maxRes.w, meta.width || maxRes.w);
     let outH = Math.min(maxRes.h, meta.height || maxRes.h);
     const startTier = tiers.find(t => t.w <= outW && t.h <= outH) || tiers[tiers.length - 1];
-    outW = startTier.w; outH = startTier.h;
+    outW = startTier.w;
+    outH = startTier.h;
 
     const fps = Number(fpsSelect.value);
 
@@ -1256,43 +1223,42 @@
     const MAX_ATTEMPTS = 10;
 
     let { videoBps, audioBps } = computeBitratesForTarget(durationSec, targetBytes);
-    videoBps = Math.min(videoBps, 2_000_000);
+    videoBps = Math.min(videoBps, 2_000_000); // sanity cap
 
     while (attempt < MAX_ATTEMPTS){
       if (cancelRequested) throw new Error("cancelled");
+
       attempt++;
       attemptText.textContent = String(attempt);
+      progressText.textContent = "Encoding…";
 
-      const vbpsK = Math.max(80, Math.floor(videoBps / 1000));
       logProgress(`\n--- Attempt ${attempt} ---`);
-      logProgress(`Try ${outW}x${outH} @ ~${vbpsK} kbps video + ${Math.floor(audioBps/1000)} kbps audio`);
+      logProgress(`Try ${outW}x${outH} @ ~${Math.floor(videoBps/1000)} kbps video`);
 
       let outBlob;
       try{
         outBlob = await transcodeViaCanvas(inputBlob, outW, outH, fps, videoBps, audioBps);
       }catch(e){
         logProgress(`Convert error: ${e.message || e}`);
+
+        // If encoder settings failed, downscale and try again
         const next = scaleDownTier(outW, outH);
         outW = next.w; outH = next.h;
+
         ({ videoBps, audioBps } = computeBitratesForTarget(durationSec, targetBytes));
         videoBps = Math.max(minVideoBps, Math.min(videoBps, 1_200_000));
         continue;
       }
 
-      // Update badges based on actual output mime
-      preferredOutputMime = pickPreferredOutputMime();
-      outMimeLabel.textContent = outBlob.type || preferredOutputMime || "unknown";
-      const compat = isGorillaDeskCompatibleMime(outBlob.type || "");
-      gdCompatLabel.textContent = compat ? "YES" : "NO";
-      gdCompatLabel.className = "mono " + (compat ? "ok" : "warn");
-
-      logProgress(`Output size: ${fmtMB(outBlob.size)} | mime: ${outBlob.type || "unknown"}`);
+      logProgress(`Output: ${fmtMB(outBlob.size)} | mime: ${outBlob.type || "unknown"}`);
 
       if (outBlob.size <= targetBytes){
         logProgress(`✅ Success under limit (≤ ${fmtMB(targetBytes)}).`);
+        progressText.textContent = "Done";
         return outBlob;
       }
 
+      // Too big: lower bitrate, then lower resolution
       if (videoBps > (minVideoBps * 1.15)){
         videoBps = Math.max(minVideoBps, Math.floor(videoBps * 0.72));
         logProgress(`Still too big → lowering bitrate to ~${Math.floor(videoBps/1000)} kbps`);
@@ -1313,6 +1279,7 @@
     throw new Error("Max attempts reached; could not compress under 50MB on this device.");
   }
 
+  // Convert button
   convertBtn.addEventListener("click", async () => {
     if (!sourceBlob) return;
 
@@ -1323,7 +1290,7 @@
     try{
       clearResult();
       showProgress(true);
-      logProgress(`Starting conversion… (target ≤ ${fmtMB(MAX_BYTES - SAFETY_BYTES)})`);
+      logProgress(`Starting conversion… target ≤ ${fmtMB(MAX_BYTES - SAFETY_BYTES)}`);
 
       const out = await compressIteratively(sourceBlob);
 
@@ -1331,6 +1298,7 @@
       cancelConvertBtn.disabled = true;
       cancelRequested = false;
 
+      // Update output badges based on actual output type
       renderResult(out, "Final (≤ 50MB)");
 
     }catch(e){
@@ -1350,42 +1318,10 @@
     cancelRequested = true;
     cancelConvertBtn.disabled = true;
     logProgress("Cancel requested…");
+    progressText.textContent = "Cancelling…";
   });
 
-  // Init
-  async function init(){
-    limitLabel.textContent = fmtMB(MAX_BYTES);
-    recordBitrateLabel.textContent = recordBitrate.value;
-
-    // Secure context banner
-    if (!isSecureEnoughForCamera()){
-      secureBanner.style.display = "block";
-    }
-
-    // Output mime detection
-    preferredOutputMime = pickPreferredOutputMime();
-    outTargetLabel.textContent = "MP4 preferred";
-    outMimeLabel.textContent = preferredOutputMime || "(browser default)";
-    gdCompatLabel.textContent = isGorillaDeskCompatibleMime(preferredOutputMime) ? "YES" : "NO";
-    gdCompatLabel.className = "mono " + (isGorillaDeskCompatibleMime(preferredOutputMime) ? "ok" : "warn");
-
-    updateOutputBadges();
-
-    setMode("record");
-    updateRecUI();
-    clearResult();
-
-    // iOS gesture requirement: don’t auto-start camera
-    startBtn.disabled = true;
-    restartPreviewBtn.disabled = true;
-    stopBtn.disabled = true;
-    resetBtn.disabled = true;
-  }
-
-  // Wire up remaining handlers
-  tabRecord.addEventListener("click", () => setMode("record"));
-  tabUpload.addEventListener("click", () => setMode("upload"));
-
+  // Enable/restart camera (gesture-required on iOS)
   enableCameraBtn.addEventListener("click", async () => {
     try{
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
@@ -1399,6 +1335,7 @@
       await startPreview();
       await populateCameras();
 
+      // If we can, restart with selected deviceId (helps iOS stability)
       if (!cameraSelect.value && cameraSelect.options[0]){
         cameraSelect.value = cameraSelect.options[0].value;
       }
@@ -1418,6 +1355,7 @@
     catch(e){ console.error(e); alert("Preview restart failed."); }
   });
 
+  // Record controls
   startBtn.addEventListener("click", startRecording);
   stopBtn.addEventListener("click", stopRecording);
 
@@ -1430,39 +1368,39 @@
     resetBtn.disabled = true;
   });
 
-  // Settings sheet
-  settingsBtn.addEventListener("click", () => {
-    sheetOverlay.style.display = "block";
-    sheet.style.transform = "translateY(0)";
-    sheet.setAttribute("aria-hidden","false");
-  });
-  closeSheetBtn.addEventListener("click", () => {
-    sheetOverlay.style.display = "none";
-    sheet.style.transform = "translateY(110%)";
-    sheet.setAttribute("aria-hidden","true");
-  });
-  sheetOverlay.addEventListener("click", () => {
-    sheetOverlay.style.display = "none";
-    sheet.style.transform = "translateY(110%)";
-    sheet.setAttribute("aria-hidden","true");
+  // Tabs
+  tabRecord.addEventListener("click", () => setMode("record"));
+  tabUpload.addEventListener("click", () => setMode("upload"));
+
+  // Settings live updates
+  recordBitrate.addEventListener("input", () => {
+    recordBitrateLabel.textContent = recordBitrate.value;
   });
 
-  // Update output support when settings change (some browsers differ by context)
-  function refreshOutputSupport(){
+  // Init
+  function init(){
+    limitLabel.textContent = fmtMB(MAX_BYTES);
+    recordBitrateLabel.textContent = recordBitrate.value;
+
+    if (!isSecureEnoughForCamera()){
+      secureBanner.style.display = "block";
+    }
+
     preferredOutputMime = pickPreferredOutputMime();
-    outMimeLabel.textContent = preferredOutputMime || "(browser default)";
-    const compat = isGorillaDeskCompatibleMime(preferredOutputMime);
-    gdCompatLabel.textContent = compat ? "YES" : "NO";
-    gdCompatLabel.className = "mono " + (compat ? "ok" : "warn");
     updateOutputBadges();
-  }
 
-  recordBitrate.addEventListener("input", () => { recordBitrateLabel.textContent = recordBitrate.value; });
-  fpsSelect.addEventListener("change", refreshOutputSupport);
-  previewResSelect.addEventListener("change", refreshOutputSupport);
-  convertResSelect.addEventListener("change", refreshOutputSupport);
+    setMode("record");
+    updateRecUI();
+    clearResult();
+
+    // iOS gesture requirement: don’t auto-start camera
+    startBtn.disabled = true;
+    restartPreviewBtn.disabled = true;
+    stopBtn.disabled = true;
+    resetBtn.disabled = true;
+  }
 
   init();
 </script>
 </body>
-  </html>
+</html>
