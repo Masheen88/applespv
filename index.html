@@ -10,6 +10,17 @@
     <title>50MB Video Recorder / Converter (MP4-first)</title>
 
     <link rel="stylesheet" href="main.css" />
+
+    <!-- NEW: Map tab styles -->
+    <link rel="stylesheet" href="map.css" />
+
+    <!-- NEW: Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
   </head>
   <body>
     <header>
@@ -22,10 +33,35 @@
           <button id="themeBtn" class="btn" type="button">🌓 Theme</button>
         </div>
       </div>
+
+      <!-- NEW: Top-level tabs (Video / Map) -->
+      <div class="topTabs" role="tablist" aria-label="app tabs">
+        <button
+          id="appTabVideo"
+          class="topTab active"
+          type="button"
+          role="tab"
+          aria-selected="true"
+        >
+          🎥 Video
+        </button>
+        <button
+          id="appTabMap"
+          class="topTab"
+          type="button"
+          role="tab"
+          aria-selected="false"
+        >
+          🗺️ Map / Plot
+        </button>
+      </div>
     </header>
 
     <main>
-      <section class="card">
+      <!-- ========================= -->
+      <!-- VIDEO TAB (existing UI)   -->
+      <!-- ========================= -->
+      <section id="videoTabPanel" class="card">
         <h2>
           <span>Record / Upload</span>
           <span class="pill"
@@ -52,33 +88,26 @@
             </p>
           </div>
 
-              <!-- Concise camera enable group -->
-            <div class="groupCard" id="cameraGroup">
-              <div class="groupTop">
-                <div class="groupTitle">Camera</div>
-                <div class="groupSub mono" id="cameraStateLabel">
-                  Not enabled
-                </div>
-              </div>
-
-              <div class="actions tight">
-                <button id="enableCameraBtn" class="btn primary" type="button">
-                  📷 Enable
-                </button>
-                <button
-                  id="restartPreviewBtn"
-                  class="btn"
-                  type="button"
-                  disabled
-                >
-                  🔄 Restart
-                </button>
-              </div>
-
-              <div class="note" style="margin-top: 8px">
-                Tip: iPhone Safari requires HTTPS for camera access.
-              </div>
+          <!-- Concise camera enable group -->
+          <div class="groupCard" id="cameraGroup">
+            <div class="groupTop">
+              <div class="groupTitle">Camera</div>
+              <div class="groupSub mono" id="cameraStateLabel">Not enabled</div>
             </div>
+
+            <div class="actions tight">
+              <button id="enableCameraBtn" class="btn primary" type="button">
+                📷 Enable
+              </button>
+              <button id="restartPreviewBtn" class="btn" type="button" disabled>
+                🔄 Restart
+              </button>
+            </div>
+
+            <div class="note" style="margin-top: 8px">
+              Tip: iPhone Safari requires HTTPS for camera access.
+            </div>
+          </div>
 
           <div class="tabs" role="tablist" aria-label="mode tabs">
             <button
@@ -105,8 +134,6 @@
           <div id="recordPanel" style="margin-top: 12px">
             <video id="preview" playsinline autoplay muted></video>
 
-        
-
             <!-- Recording group -->
             <div class="groupCard" id="recordingGroup">
               <div class="groupTop">
@@ -116,8 +143,7 @@
 
               <div class="status compact" aria-live="polite">
                 <span class="pill"
-                  >Size:
-                  <span class="mono" id="recSizeLabel">0.0 MB</span></span
+                  >Size: <span class="mono" id="recSizeLabel">0.0 MB</span></span
                 >
                 <span class="pill"
                   >Time: <span class="mono" id="recTimeLabel">0s</span></span
@@ -172,13 +198,9 @@
                 <div class="groupTitle">Upload</div>
                 <div class="groupSub mono">Pick a video file</div>
               </div>
-              <label for="fileInput"
-                >Choose a video (MP4/MOV recommended)</label
-              >
+              <label for="fileInput">Choose a video (MP4/MOV recommended)</label>
               <input id="fileInput" type="file" accept="video/*" />
-              <div class="note">
-                Pick an existing video and convert it to ≤ 50MB.
-              </div>
+              <div class="note">Pick an existing video and convert it to ≤ 50MB.</div>
             </div>
           </div>
 
@@ -192,12 +214,10 @@
 
           <div class="status">
             <span class="pill"
-              >Preferred output:
-              <span class="mono" id="preferredMimeLabel">—</span></span
+              >Preferred output: <span class="mono" id="preferredMimeLabel">—</span></span
             >
             <span class="pill"
-              >GorillaDesk compatible:
-              <span class="mono" id="gdCompatLabel">—</span></span
+              >GorillaDesk compatible: <span class="mono" id="gdCompatLabel">—</span></span
             >
           </div>
 
@@ -209,12 +229,7 @@
             </div>
 
             <div class="actions tight">
-              <button
-                id="convertBtn"
-                class="btn primary"
-                type="button"
-                disabled
-              >
+              <button id="convertBtn" class="btn primary" type="button" disabled>
                 🧪 Convert ≤ 50MB
               </button>
               <button id="cancelConvertBtn" class="btn" type="button" disabled>
@@ -231,8 +246,91 @@
             </div>
 
             <div id="resultArea" style="margin-top: 12px">
+              <div class="note">Converted output will appear here with Save/Share.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= -->
+      <!-- MAP TAB (NEW)             -->
+      <!-- ========================= -->
+      <section id="mapTabPanel" class="card" style="display: none">
+        <h2>
+          <span>Map / Plot</span>
+          <span class="pill"
+            >North-up • Satellite • GPS</span
+          >
+        </h2>
+
+        <div class="content mapContent">
+          <div id="mapBanner" class="banner" style="display:none;">
+            <div class="bannerTitle warn">Location permission required</div>
+            <p>
+              Enable location access to plot points and track your path. (Works best over HTTPS.)
+            </p>
+          </div>
+
+          <div class="mapFrame">
+            <div id="map" class="map"></div>
+
+            <!-- Floating controls -->
+            <div class="mapControls" aria-label="map controls">
+              <button id="mapZoomInBtn" class="btn mapBtn" type="button">＋</button>
+              <button id="mapZoomOutBtn" class="btn mapBtn" type="button">－</button>
+
+              <div class="mapPad">
+                <button id="mapPanUpBtn" class="btn mapBtn" type="button">↑</button>
+                <div class="mapPadMid">
+                  <button id="mapPanLeftBtn" class="btn mapBtn" type="button">←</button>
+                  <button id="mapCenterBtn" class="btn mapBtn primary" type="button">◎</button>
+                  <button id="mapPanRightBtn" class="btn mapBtn" type="button">→</button>
+                </div>
+                <button id="mapPanDownBtn" class="btn mapBtn" type="button">↓</button>
+              </div>
+            </div>
+
+            <!-- Bottom action bar -->
+            <div class="mapActionBar">
+              <button id="startTrackBtn" class="btn primary" type="button">
+                ▶️ Start path
+              </button>
+              <button id="dropPointBtn" class="btn" type="button" disabled>
+                🔴 Drop point
+              </button>
+              <button id="exportMapBtn" class="btn" type="button" disabled>
+                🖼️ Export image
+              </button>
+              <button id="clearMapBtn" class="btn danger" type="button" disabled>
+                🧽 Clear
+              </button>
+            </div>
+
+            <!-- Small readout -->
+            <div class="mapReadout mono" id="mapReadout">
+              GPS: — • Points: 0 • Path: 0
+            </div>
+          </div>
+
+          <div class="note">
+            Tip: Your phone’s compass won’t rotate the map—this view stays north-up.
+            The blue line is your tracked path; red dots are manual “drop points.”
+          </div>
+
+          <!-- Export result -->
+          <div id="mapExportArea" class="mapExportArea" style="display:none;">
+            <div class="groupCard">
+              <div class="groupTop">
+                <div class="groupTitle">Export</div>
+                <div class="groupSub mono">Saved as an image</div>
+              </div>
+              <img id="mapExportImg" alt="Map export preview" />
+              <div class="actions tight" style="margin-top:10px;">
+                <a id="mapDownloadLink" class="btn primary" download="map-export.png">⬇️ Download</a>
+              </div>
               <div class="note">
-                Converted output will appear here with Save/Share.
+                If export is blank/gray, your tile provider may block canvas export.
+                (Try HTTPS, or switch to a tile provider with CORS enabled.)
               </div>
             </div>
           </div>
@@ -260,6 +358,7 @@
         <button id="closeSheetBtn" class="btn" type="button">✖️ Close</button>
       </div>
       <div class="sheetBody">
+        <!-- (unchanged settings content) -->
         <div class="twoCol">
           <div>
             <label for="cameraSelect">Camera</label>
@@ -316,9 +415,7 @@
         </div>
 
         <div>
-          <label for="minQualitySelect"
-            >Minimum quality floor (conversion)</label
-          >
+          <label for="minQualitySelect">Minimum quality floor (conversion)</label>
           <select id="minQualitySelect">
             <option value="640x360|250" selected>Min 360p @ 250 kbps</option>
             <option value="426x240|180">Min 240p @ 180 kbps</option>
@@ -352,8 +449,8 @@
         </div>
 
         <div class="note">
-          MP4 output requires MP4 encoding support from your browser
-          (MediaRecorder). If unsupported, this app will fall back to WebM.
+          MP4 output requires MP4 encoding support from your browser (MediaRecorder).
+          If unsupported, this app will fall back to WebM.
         </div>
       </div>
     </div>
@@ -378,6 +475,22 @@
       </div>
     </div> -->
 
+    <!-- Leaflet JS -->
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <!-- Export helper (canvas capture) -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"
+      crossorigin="anonymous"
+    ></script>
+
     <script src="./main.js"></script>
+
+    <!-- NEW: Map tab logic -->
+    <script src="./map.js"></script>
   </body>
 </html>
