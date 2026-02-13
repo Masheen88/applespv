@@ -417,7 +417,7 @@ function renderResult(blob, label) {
 
       <div class="actions tight">
         <a class="btn primary" href="${url}" download="gorilladesk-video.${ext}">⬇️ Save</a>
-        <button class="btn" id="previewBtn" type="button">🎬 Preview</button>
+       <!-- <button class="btn" id="previewBtn" type="button">🎬 Preview</button> -->
         <button class="btn" id="shareBtn" type="button">📤 Share</button>
       </div>
 
