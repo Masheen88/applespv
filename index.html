@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="main.css" />
 
     <!-- NEW: Map tab styles -->
-    <link rel="stylesheet" href="map.updated.css" />
+    <link rel="stylesheet" href="map.css" />
 
     <!-- NEW: Leaflet CSS -->
     <link
@@ -152,7 +152,8 @@
 
               <div class="status compact" aria-live="polite">
                 <span class="pill"
-                  >Size: <span class="mono" id="recSizeLabel">0.0 MB</span></span
+                  >Size:
+                  <span class="mono" id="recSizeLabel">0.0 MB</span></span
                 >
                 <span class="pill"
                   >Time: <span class="mono" id="recTimeLabel">0s</span></span
@@ -207,9 +208,13 @@
                 <div class="groupTitle">Upload</div>
                 <div class="groupSub mono">Pick a video file</div>
               </div>
-              <label for="fileInput">Choose a video (MP4/MOV recommended)</label>
+              <label for="fileInput"
+                >Choose a video (MP4/MOV recommended)</label
+              >
               <input id="fileInput" type="file" accept="video/*" />
-              <div class="note">Pick an existing video and convert it to ≤ 50MB.</div>
+              <div class="note">
+                Pick an existing video and convert it to ≤ 50MB.
+              </div>
             </div>
           </div>
 
@@ -223,10 +228,12 @@
 
           <div class="status">
             <span class="pill"
-              >Preferred output: <span class="mono" id="preferredMimeLabel">—</span></span
+              >Preferred output:
+              <span class="mono" id="preferredMimeLabel">—</span></span
             >
             <span class="pill"
-              >GorillaDesk compatible: <span class="mono" id="gdCompatLabel">—</span></span
+              >GorillaDesk compatible:
+              <span class="mono" id="gdCompatLabel">—</span></span
             >
           </div>
 
@@ -238,7 +245,12 @@
             </div>
 
             <div class="actions tight">
-              <button id="convertBtn" class="btn primary" type="button" disabled>
+              <button
+                id="convertBtn"
+                class="btn primary"
+                type="button"
+                disabled
+              >
                 🧪 Convert ≤ 50MB
               </button>
               <button id="cancelConvertBtn" class="btn" type="button" disabled>
@@ -255,20 +267,24 @@
             </div>
 
             <div id="resultArea" style="margin-top: 12px">
-              <div class="note">Converted output will appear here with Save/Share.</div>
+              <div class="note">
+                Converted output will appear here with Save/Share.
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       <!-- ========================= -->
-            <!-- ========================= -->
+      <!-- ========================= -->
       <!-- COMBO TAB (NEW)           -->
       <!-- ========================= -->
       <section id="comboTabPanel" class="card" style="display: none">
         <h2>
           <span>Video + Plot</span>
-          <span class="pill">Record • Pause • Start/Stop path • Drop points</span>
+          <span class="pill"
+            >Record • Pause • Start/Stop path • Drop points</span
+          >
         </h2>
 
         <div class="content comboContent">
@@ -277,13 +293,17 @@
               <video id="comboPreview" playsinline muted autoplay></video>
 
               <div class="comboHud">
-                <span class="pill mono" id="comboHudText">Camera: — • Rec: — • Points: 0 • Path: 0</span>
+                <span class="pill mono" id="comboHudText"
+                  >Camera: — • Rec: — • Points: 0 • Path: 0</span
+                >
               </div>
 
               <!-- GTA-style minimap overlay -->
               <div class="miniMapWrap" aria-label="minimap">
                 <div id="minimap" class="miniMap"></div>
-                <div class="miniReadout mono" id="miniReadout">GPS: — • Points: 0 • Path: 0</div>
+                <div class="miniReadout mono" id="miniReadout">
+                  GPS: — • Points: 0 • Path: 0
+                </div>
               </div>
             </div>
 
@@ -295,19 +315,55 @@
                 </div>
 
                 <div class="actions tight">
-                  <button id="comboEnableCameraBtn" class="btn primary" type="button">📷 Enable</button>
-                  <button id="comboRecordToggleBtn" class="btn primary" type="button" disabled>⏺️ Record</button>
-                  <button id="comboPauseBtn" class="btn" type="button" disabled>⏸️ Pause</button>
+                  <button
+                    id="comboEnableCameraBtn"
+                    class="btn primary"
+                    type="button"
+                  >
+                    📷 Enable
+                  </button>
+                  <button
+                    id="comboRecordToggleBtn"
+                    class="btn primary"
+                    type="button"
+                    disabled
+                  >
+                    ⏺️ Record
+                  </button>
+                  <button id="comboPauseBtn" class="btn" type="button" disabled>
+                    ⏸️ Pause
+                  </button>
                 </div>
 
                 <div class="actions tight">
-                  <button id="comboStartPathBtn" class="btn primary" type="button">▶️ Start path</button>
-                  <button id="comboDropPointBtn" class="btn" type="button" disabled>📍 Drop point</button>
-                  <button id="comboCenterBtn" class="btn" type="button" disabled>◎ Center</button>
+                  <button
+                    id="comboStartPathBtn"
+                    class="btn primary"
+                    type="button"
+                  >
+                    ▶️ Start path
+                  </button>
+                  <button
+                    id="comboDropPointBtn"
+                    class="btn"
+                    type="button"
+                    disabled
+                  >
+                    📍 Drop point
+                  </button>
+                  <button
+                    id="comboCenterBtn"
+                    class="btn"
+                    type="button"
+                    disabled
+                  >
+                    ◎ Center
+                  </button>
                 </div>
 
                 <div class="note">
-                  Tip: You can record video and track your walking path at the same time. The minimap stays north-up.
+                  Tip: You can record video and track your walking path at the
+                  same time. The minimap stays north-up.
                 </div>
               </div>
             </div>
@@ -315,21 +371,20 @@
         </div>
       </section>
 
-<!-- MAP TAB (NEW)             -->
+      <!-- MAP TAB (NEW)             -->
       <!-- ========================= -->
       <section id="mapTabPanel" class="card" style="display: none">
         <h2>
           <span>Map / Plot</span>
-          <span class="pill"
-            >North-up • Satellite • GPS</span
-          >
+          <span class="pill">North-up • Satellite • GPS</span>
         </h2>
 
         <div class="content mapContent">
-          <div id="mapBanner" class="banner" style="display:none;">
+          <div id="mapBanner" class="banner" style="display: none">
             <div class="bannerTitle warn">Location permission required</div>
             <p>
-              Enable location access to plot points and track your path. (Works best over HTTPS.)
+              Enable location access to plot points and track your path. (Works
+              best over HTTPS.)
             </p>
           </div>
 
@@ -338,17 +393,35 @@
 
             <!-- Floating controls -->
             <div class="mapControls" aria-label="map controls">
-              <button id="mapZoomInBtn" class="btn mapBtn" type="button">＋</button>
-              <button id="mapZoomOutBtn" class="btn mapBtn" type="button">－</button>
+              <button id="mapZoomInBtn" class="btn mapBtn" type="button">
+                ＋
+              </button>
+              <button id="mapZoomOutBtn" class="btn mapBtn" type="button">
+                －
+              </button>
 
               <div class="mapPad">
-                <button id="mapPanUpBtn" class="btn mapBtn" type="button">↑</button>
+                <button id="mapPanUpBtn" class="btn mapBtn" type="button">
+                  ↑
+                </button>
                 <div class="mapPadMid">
-                  <button id="mapPanLeftBtn" class="btn mapBtn" type="button">←</button>
-                  <button id="mapCenterBtn" class="btn mapBtn primary" type="button">◎</button>
-                  <button id="mapPanRightBtn" class="btn mapBtn" type="button">→</button>
+                  <button id="mapPanLeftBtn" class="btn mapBtn" type="button">
+                    ←
+                  </button>
+                  <button
+                    id="mapCenterBtn"
+                    class="btn mapBtn primary"
+                    type="button"
+                  >
+                    ◎
+                  </button>
+                  <button id="mapPanRightBtn" class="btn mapBtn" type="button">
+                    →
+                  </button>
                 </div>
-                <button id="mapPanDownBtn" class="btn mapBtn" type="button">↓</button>
+                <button id="mapPanDownBtn" class="btn mapBtn" type="button">
+                  ↓
+                </button>
               </div>
             </div>
 
@@ -363,7 +436,12 @@
               <button id="exportMapBtn" class="btn" type="button" disabled>
                 🖼️ Export image
               </button>
-              <button id="clearMapBtn" class="btn danger" type="button" disabled>
+              <button
+                id="clearMapBtn"
+                class="btn danger"
+                type="button"
+                disabled
+              >
                 🧽 Clear
               </button>
             </div>
@@ -375,24 +453,31 @@
           </div>
 
           <div class="note">
-            Tip: Your phone’s compass won’t rotate the map—this view stays north-up.
-            The blue line is your tracked path; red dots are manual “drop points.”
+            Tip: Your phone’s compass won’t rotate the map—this view stays
+            north-up. The blue line is your tracked path; red dots are manual
+            “drop points.”
           </div>
 
           <!-- Export result -->
-          <div id="mapExportArea" class="mapExportArea" style="display:none;">
+          <div id="mapExportArea" class="mapExportArea" style="display: none">
             <div class="groupCard">
               <div class="groupTop">
                 <div class="groupTitle">Export</div>
                 <div class="groupSub mono">Saved as an image</div>
               </div>
               <img id="mapExportImg" alt="Map export preview" />
-              <div class="actions tight" style="margin-top:10px;">
-                <a id="mapDownloadLink" class="btn primary" download="map-export.png">⬇️ Download</a>
+              <div class="actions tight" style="margin-top: 10px">
+                <a
+                  id="mapDownloadLink"
+                  class="btn primary"
+                  download="map-export.png"
+                  >⬇️ Download</a
+                >
               </div>
               <div class="note">
-                If export is blank/gray, your tile provider may block canvas export.
-                (Try HTTPS, or switch to a tile provider with CORS enabled.)
+                If export is blank/gray, your tile provider may block canvas
+                export. (Try HTTPS, or switch to a tile provider with CORS
+                enabled.)
               </div>
             </div>
           </div>
@@ -477,7 +562,9 @@
         </div>
 
         <div>
-          <label for="minQualitySelect">Minimum quality floor (conversion)</label>
+          <label for="minQualitySelect"
+            >Minimum quality floor (conversion)</label
+          >
           <select id="minQualitySelect">
             <option value="640x360|250" selected>Min 360p @ 250 kbps</option>
             <option value="426x240|180">Min 240p @ 180 kbps</option>
@@ -511,8 +598,8 @@
         </div>
 
         <div class="note">
-          MP4 output requires MP4 encoding support from your browser (MediaRecorder).
-          If unsupported, this app will fall back to WebM.
+          MP4 output requires MP4 encoding support from your browser
+          (MediaRecorder). If unsupported, this app will fall back to WebM.
         </div>
       </div>
     </div>
@@ -550,9 +637,9 @@
       crossorigin="anonymous"
     ></script>
 
-    <script src="./main.updated.js"></script>
+    <script src="./main.js"></script>
 
     <!-- NEW: Map tab logic -->
-    <script src="./map.updated.js"></script>
+    <script src="./map.js"></script>
   </body>
 </html>
