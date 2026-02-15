@@ -83,87 +83,6 @@ const closeModalBtn = $("closeModalBtn");
 const modalVideo = $("modalVideo");
 const modalMetaNote = $("modalMetaNote");
 
-
-// Combo tab (Video + Plot) refs (optional)
-const comboPreview = $("comboPreview");
-const comboHudText = $("comboHudText");
-const comboStateNote = $("comboStateNote");
-
-const comboEnableCameraBtn = $("comboEnableCameraBtn");
-const comboRecordToggleBtn = $("comboRecordToggleBtn");
-const comboPauseBtn = $("comboPauseBtn");
-
-const comboStartPathBtn = $("comboStartPathBtn");
-const comboDropPointBtn = $("comboDropPointBtn");
-const comboCenterBtn = $("comboCenterBtn");
-
-// Map buttons (live in map tab; may be hidden while using combo tab)
-const startTrackBtn = document.getElementById("startTrackBtn");
-const dropPointBtn = document.getElementById("dropPointBtn");
-const mapCenterBtn = document.getElementById("mapCenterBtn");
-
-function wireComboButtons() {
-  if (comboEnableCameraBtn && enableCameraBtn) {
-    comboEnableCameraBtn.addEventListener("click", () => enableCameraBtn.click());
-  }
-  if (comboRecordToggleBtn && recordToggleBtn) {
-    comboRecordToggleBtn.addEventListener("click", () => recordToggleBtn.click());
-  }
-  if (comboPauseBtn && pauseBtn) {
-    comboPauseBtn.addEventListener("click", () => pauseBtn.click());
-  }
-
-  // Map actions (trigger hidden map tab buttons)
-  if (comboStartPathBtn && startTrackBtn) {
-    comboStartPathBtn.addEventListener("click", () => startTrackBtn.click());
-  }
-  if (comboDropPointBtn && dropPointBtn) {
-    comboDropPointBtn.addEventListener("click", () => dropPointBtn.click());
-  }
-  if (comboCenterBtn && mapCenterBtn) {
-    comboCenterBtn.addEventListener("click", () => mapCenterBtn.click());
-  }
-}
-
-function syncComboUI() {
-  // Mirror the existing video recording UI state
-  if (comboRecordToggleBtn && recordToggleBtn) {
-    comboRecordToggleBtn.disabled = !!recordToggleBtn.disabled;
-    comboRecordToggleBtn.textContent = recordToggleBtn.textContent || "⏺️ Record";
-  }
-  if (comboPauseBtn && pauseBtn) {
-    comboPauseBtn.disabled = !!pauseBtn.disabled;
-    comboPauseBtn.textContent = pauseBtn.textContent || "⏸️ Pause";
-  }
-  if (comboEnableCameraBtn && enableCameraBtn) {
-    comboEnableCameraBtn.disabled = !!enableCameraBtn.disabled;
-  }
-
-  // Mirror map UI state (so buttons enable/disable correctly in combo tab)
-  if (comboStartPathBtn && startTrackBtn) {
-    comboStartPathBtn.textContent = startTrackBtn.textContent || "▶️ Start path";
-    comboStartPathBtn.disabled = !!startTrackBtn.disabled;
-  }
-  if (comboDropPointBtn && dropPointBtn) {
-    comboDropPointBtn.disabled = !!dropPointBtn.disabled;
-  }
-  if (comboCenterBtn && mapCenterBtn) {
-    comboCenterBtn.disabled = !!mapCenterBtn.disabled;
-  }
-}
-
-function updateComboHUD() {
-  if (!comboHudText) return;
-
-  const cam = cameraStateLabel ? cameraStateLabel.textContent : "—";
-  const rec = recStateLabel ? recStateLabel.textContent : "—";
-  const t = recTimeLabel ? recTimeLabel.textContent : "";
-  const sz = recSizeLabel ? recSizeLabel.textContent : "";
-
-  comboHudText.textContent = `Camera: ${cam} • Rec: ${rec} • ${t} • ${sz}`;
-  if (comboStateNote) comboStateNote.textContent = rec;
-}
-
 // Hidden tools for conversion
 const xCanvas = $("xCanvas");
 const xVideo = $("xVideo");
@@ -655,11 +574,6 @@ function stopStream() {
   stream = null;
   videoTrack = null;
 
-
-  // Clear previews
-  try { preview.srcObject = null; } catch (_) {}
-  try { if (comboPreview) comboPreview.srcObject = null; } catch (_) {}
-
   cameraStateLabel.textContent = "Not enabled";
 }
 
@@ -726,7 +640,6 @@ async function startPreview() {
 
   stream = await navigator.mediaDevices.getUserMedia(constraints);
   preview.srcObject = stream;
-  if (comboPreview) comboPreview.srcObject = stream;
 
   try {
     await preview.play();
@@ -1486,19 +1399,3 @@ function init() {
 }
 
 init();
-
-
-/********************************************************************
- * Combo tab wiring (Video + Plot)
- ********************************************************************/
-try {
-  wireComboButtons();
-  // Keep combo controls in sync even when the real controls are in another tab.
-  setInterval(() => {
-    syncComboUI();
-    updateComboHUD();
-  }, 250);
-} catch (e) {
-  // no-op (combo tab not present)
-}
-

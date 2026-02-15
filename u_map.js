@@ -6,60 +6,29 @@
   // -----------------------------
   const appTabVideo = document.getElementById("appTabVideo");
   const appTabMap = document.getElementById("appTabMap");
-  const appTabCombo = document.getElementById("appTabCombo");
   const videoTabPanel = document.getElementById("videoTabPanel");
   const mapTabPanel = document.getElementById("mapTabPanel");
-  const comboTabPanel = document.getElementById("comboTabPanel");
 
   function setAppTab(tab) {
     const isVideo = tab === "video";
-    const isMap = tab === "map";
-    const isCombo = tab === "combo";
 
-    if (appTabVideo) {
-      appTabVideo.classList.toggle("active", isVideo);
-      appTabVideo.setAttribute("aria-selected", isVideo ? "true" : "false");
-    }
-    if (appTabMap) {
-      appTabMap.classList.toggle("active", isMap);
-      appTabMap.setAttribute("aria-selected", isMap ? "true" : "false");
-    }
-    if (appTabCombo) {
-      appTabCombo.classList.toggle("active", isCombo);
-      appTabCombo.setAttribute("aria-selected", isCombo ? "true" : "false");
-    }
+    appTabVideo.classList.toggle("active", isVideo);
+    appTabVideo.setAttribute("aria-selected", isVideo ? "true" : "false");
 
-    if (videoTabPanel) videoTabPanel.style.display = isVideo ? "" : "none";
-    if (mapTabPanel) mapTabPanel.style.display = isMap ? "" : "none";
-    if (comboTabPanel) comboTabPanel.style.display = isCombo ? "" : "none";
+    appTabMap.classList.toggle("active", !isVideo);
+    appTabMap.setAttribute("aria-selected", !isVideo ? "true" : "false");
 
-    // Lazy init map when Map or Combo opens (tracking relies on it)
-    if (isMap || isCombo) initMapOnce();
+    videoTabPanel.style.display = isVideo ? "" : "none";
+    mapTabPanel.style.display = isVideo ? "none" : "";
 
-    // Minimap lives inside Combo tab
-    if (isCombo) initMiniMapOnce();
-
-    // Leaflet needs a size invalidate when a map becomes visible
-    if (isMap && map) {
-      setTimeout(() => {
-        try {
-          map.invalidateSize();
-        } catch (_) {}
-      }, 80);
-    }
-    if (isCombo && miniMap) {
-      setTimeout(() => {
-        try {
-          miniMap.invalidateSize();
-        } catch (_) {}
-      }, 80);
-    }
+    // Lazy init map when first opened
+    if (!isVideo) initMapOnce();
   }
 
-
-  if (appTabVideo) appTabVideo.addEventListener("click", () => setAppTab("video"));
-  if (appTabMap) appTabMap.addEventListener("click", () => setAppTab("map"));
-  if (appTabCombo) appTabCombo.addEventListener("click", () => setAppTab("combo"));
+  if (appTabVideo && appTabMap) {
+    appTabVideo.addEventListener("click", () => setAppTab("video"));
+    appTabMap.addEventListener("click", () => setAppTab("map"));
+  }
 
   // -----------------------------
   // Map + Tracking
@@ -67,16 +36,6 @@
   let mapInited = false;
   let map = null;
   let tile = null;
-
-  // Combo minimap (GTA-style overlay)
-  let miniInited = false;
-  let miniMap = null;
-  let miniTile = null;
-
-  let miniYouMarker = null;
-  const miniDropped = []; // markers
-  let miniPathLine = null;
-
 
   let watchId = null;
   let tracking = false;
@@ -93,7 +52,6 @@
   // UI
   const mapBanner = document.getElementById("mapBanner");
   const mapReadout = document.getElementById("mapReadout");
-  const miniReadout = document.getElementById("miniReadout");
 
   const startTrackBtn = document.getElementById("startTrackBtn");
   const dropPointBtn = document.getElementById("dropPointBtn");
@@ -175,82 +133,6 @@
     requestOneShotLocation();
 
     updateMapUI();
-    syncMiniFromState();
-  }
-
-
-  function initMiniMapOnce() {
-    if (miniInited) return;
-    const el = document.getElementById("minimap");
-    if (!el) return;
-
-    miniInited = true;
-
-    miniMap = L.map("minimap", {
-      zoomControl: false,
-      attributionControl: false,
-      dragging: false,
-      scrollWheelZoom: false,
-      doubleClickZoom: false,
-      boxZoom: false,
-      keyboard: false,
-      tap: false,
-      inertia: false,
-    });
-
-    // Same satellite tiles
-    miniTile = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      {
-        maxZoom: 20,
-        attribution: "",
-        crossOrigin: "anonymous",
-      },
-    ).addTo(miniMap);
-
-    // Default view (matches main map fallback)
-    miniMap.setView([36.1627, -86.7816], 18);
-
-    miniPathLine = L.polyline([], {
-      weight: 3,
-      opacity: 0.9,
-    }).addTo(miniMap);
-
-    // If we already have state, mirror it now
-    syncMiniFromState();
-  }
-
-  function syncMiniFromState() {
-    if (!miniMap) return;
-
-    // Sync you marker
-    if (youMarker) {
-      const ll = youMarker.getLatLng();
-      if (!miniYouMarker) {
-        miniYouMarker = L.marker(ll, { icon: youIcon }).addTo(miniMap);
-      } else {
-        miniYouMarker.setLatLng(ll);
-      }
-      miniMap.setView(ll, Math.max(miniMap.getZoom(), 18), { animate: false });
-    }
-
-    // Sync path
-    if (miniPathLine) {
-      miniPathLine.setLatLngs(pathLatLngs);
-    }
-
-    // Sync dropped points (if any already exist)
-    if (miniDropped.length === 0 && droppedPoints.length > 0) {
-      for (const p of droppedPoints) {
-        const m = L.marker([p.lat, p.lng], { icon: redDotIcon }).addTo(miniMap);
-        miniDropped.push(m);
-      }
-    }
-  }
-
-  function updateMiniReadout(text) {
-    if (!miniReadout) return;
-    miniReadout.textContent = text;
   }
 
   function wireMapControls() {
@@ -350,17 +232,6 @@
     } else {
       youMarker.setLatLng([lat, lng]);
     }
-
-    // Mirror to minimap if present
-    if (miniMap) {
-      const ll = L.latLng(lat, lng);
-      if (!miniYouMarker) {
-        miniYouMarker = L.marker(ll, { icon: youIcon }).addTo(miniMap);
-      } else {
-        miniYouMarker.setLatLng(ll);
-      }
-      miniMap.setView(ll, Math.max(miniMap.getZoom(), 18), { animate: false });
-    }
   }
 
   function startTracking() {
@@ -393,7 +264,6 @@
           const ll = L.latLng(latitude, longitude);
           pathLatLngs.push(ll);
           pathLine.setLatLngs(pathLatLngs);
-          if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
           // Keep map reasonably centered while tracking (but don’t “lock” it hard)
           if (map && youMarker) {
@@ -441,10 +311,6 @@
     if (!map) return;
 
     const marker = L.marker([lat, lng], { icon: redDotIcon }).addTo(map);
-    if (miniMap) {
-      const mm = L.marker([lat, lng], { icon: redDotIcon }).addTo(miniMap);
-      miniDropped.push(mm);
-    }
     droppedPoints.push({
       lat,
       lng,
@@ -462,16 +328,9 @@
     }
     droppedPoints.length = 0;
 
-    // Remove minimap dropped markers
-    for (const m of miniDropped) {
-      try { m.remove(); } catch {}
-    }
-    miniDropped.length = 0;
-
     // Clear path
     pathLatLngs.length = 0;
     if (pathLine) pathLine.setLatLngs(pathLatLngs);
-    if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
     // Hide export preview
     if (mapExportArea) mapExportArea.style.display = "none";
@@ -494,9 +353,7 @@
       accText = ` • ±${Math.round(extra.accuracy)}m`;
     }
 
-    const text = `GPS: ${gps}${accText} • Points: ${pts} • Path: ${pathPts}`;
-    mapReadout.textContent = text;
-    updateMiniReadout(text);
+    mapReadout.textContent = `GPS: ${gps}${accText} • Points: ${pts} • Path: ${pathPts}`;
   }
 
   function updateMapUI() {

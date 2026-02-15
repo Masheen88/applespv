@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="main.css" />
 
     <!-- NEW: Map tab styles -->
-    <link rel="stylesheet" href="map.updated.css" />
+    <link rel="stylesheet" href="map.css" />
 
     <!-- NEW: Leaflet CSS -->
     <link
@@ -53,15 +53,6 @@
           aria-selected="false"
         >
           🗺️ Map / Plot
-        </button>
-        <button
-          id="appTabCombo"
-          class="topTab"
-          type="button"
-          role="tab"
-          aria-selected="false"
-        >
-          🎥🗺️ Combo
         </button>
       </div>
     </header>
@@ -262,60 +253,7 @@
       </section>
 
       <!-- ========================= -->
-            <!-- ========================= -->
-      <!-- COMBO TAB (NEW)           -->
-      <!-- ========================= -->
-      <section id="comboTabPanel" class="card" style="display: none">
-        <h2>
-          <span>Video + Plot</span>
-          <span class="pill">Record • Pause • Start/Stop path • Drop points</span>
-        </h2>
-
-        <div class="content comboContent">
-          <div class="comboFrame">
-            <div class="comboVideoWrap">
-              <video id="comboPreview" playsinline muted autoplay></video>
-
-              <div class="comboHud">
-                <span class="pill mono" id="comboHudText">Camera: — • Rec: — • Points: 0 • Path: 0</span>
-              </div>
-
-              <!-- GTA-style minimap overlay -->
-              <div class="miniMapWrap" aria-label="minimap">
-                <div id="minimap" class="miniMap"></div>
-                <div class="miniReadout mono" id="miniReadout">GPS: — • Points: 0 • Path: 0</div>
-              </div>
-            </div>
-
-            <div class="comboActions">
-              <div class="groupCard" style="margin-top: 0">
-                <div class="groupTop">
-                  <div class="groupTitle">Controls</div>
-                  <div class="groupSub mono" id="comboStateNote">Ready</div>
-                </div>
-
-                <div class="actions tight">
-                  <button id="comboEnableCameraBtn" class="btn primary" type="button">📷 Enable</button>
-                  <button id="comboRecordToggleBtn" class="btn primary" type="button" disabled>⏺️ Record</button>
-                  <button id="comboPauseBtn" class="btn" type="button" disabled>⏸️ Pause</button>
-                </div>
-
-                <div class="actions tight">
-                  <button id="comboStartPathBtn" class="btn primary" type="button">▶️ Start path</button>
-                  <button id="comboDropPointBtn" class="btn" type="button" disabled>📍 Drop point</button>
-                  <button id="comboCenterBtn" class="btn" type="button" disabled>◎ Center</button>
-                </div>
-
-                <div class="note">
-                  Tip: You can record video and track your walking path at the same time. The minimap stays north-up.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-<!-- MAP TAB (NEW)             -->
+      <!-- MAP TAB (NEW)             -->
       <!-- ========================= -->
       <section id="mapTabPanel" class="card" style="display: none">
         <h2>
@@ -518,7 +456,7 @@
     </div>
 
     <!-- Preview Modal -->
-    <div id="modalOverlay" class="modalOverlay" hidden></div>
+    <div id="modalOverlay" class="modalOverlay" hidden></div></div>
     <!-- <div
       id="videoModal"
       class="modal"
@@ -550,9 +488,9 @@
       crossorigin="anonymous"
     ></script>
 
-    <script src="./main.updated.js"></script>
+    <script src="./main.js"></script>
 
     <!-- NEW: Map tab logic -->
-    <script src="./map.updated.js"></script>
+    <script src="./map.js"></script>
   </body>
 </html>
