@@ -3,177 +3,154 @@
  * 50MB Video Recorder/Converter (MP4-first)
  * - No FFmpeg. Uses canvas re-encode via MediaRecorder.
  * - MP4 output is ONLY possible if the browser can encode MP4.
+ *
+ * UPDATES:
+ * - Adds per-attempt conversion progress bar + % + ETA
+ * - Makes conversion silent (no "listening to the whole video")
  ********************************************************************/
 
 // GorillaDesk limit
 const MAX_BYTES = 50 * 1024 * 1024;
 const SAFETY_BYTES = 512 * 1024; // keep a little buffer under 50MB
 
+/********************************************************************
+ * DOM helpers (single source of truth)
+ ********************************************************************/
 const $ = (id) => document.getElementById(id);
 
-// UI refs
-const limitLabel = $("limitLabel");
-const secureBanner = $("secureBanner");
-const mp4Banner = $("mp4Banner");
+function pickUI(ids) {
+  const out = {};
+  ids.forEach((id) => (out[id] = $(id)));
+  return out;
+}
 
-const tabRecord = $("tabRecord");
-const tabUpload = $("tabUpload");
-const recordPanel = $("recordPanel");
-const uploadPanel = $("uploadPanel");
+const UI = {
+  ...pickUI([
+    "limitLabel",
+    "secureBanner",
+    "mp4Banner",
 
-const preview = $("preview");
-const enableCameraBtn = $("enableCameraBtn");
-const restartPreviewBtn = $("restartPreviewBtn");
+    "tabRecord",
+    "tabUpload",
+    "recordPanel",
+    "uploadPanel",
 
-const recordToggleBtn = $("recordToggleBtn");
-const pauseBtn = $("pauseBtn");
-const resetBtn = $("resetBtn");
+    "preview",
+    "enableCameraBtn",
+    "restartPreviewBtn",
 
-const fileInput = $("fileInput");
+    "recordToggleBtn",
+    "pauseBtn",
+    "resetBtn",
 
-const convertBtn = $("convertBtn");
-const cancelConvertBtn = $("cancelConvertBtn");
+    "fileInput",
 
-const recSizeLabel = $("recSizeLabel");
-const recTimeLabel = $("recTimeLabel");
-const recBarFill = $("recBarFill");
+    "convertBtn",
+    "cancelConvertBtn",
 
-const preferredMimeLabel = $("preferredMimeLabel");
-const gdCompatLabel = $("gdCompatLabel");
+    "recSizeLabel",
+    "recTimeLabel",
+    "recBarFill",
 
-const progressBox = $("progressBox");
-const attemptText = $("attemptText");
-const progressText = $("progressText");
-const progressLog = $("progressLog");
+    "preferredMimeLabel",
+    "gdCompatLabel",
 
-const resultArea = $("resultArea");
+    "progressBox",
+    "attemptText",
+    "progressText",
+    "progressLog",
 
-// Settings
-const settingsBtn = $("settingsBtn");
-const themeBtn = $("themeBtn");
-const sheetOverlay = $("sheetOverlay");
-const sheet = $("sheet");
-const closeSheetBtn = $("closeSheetBtn");
+    // NEW progress UI
+    "convBarFill",
+    "convPctLabel",
+    "convEtaLabel",
 
-const cameraSelect = $("cameraSelect");
-const fpsSelect = $("fpsSelect");
+    "resultArea",
 
-const previewResSelect = $("previewResSelect");
-const convertResSelect = $("convertResSelect");
-const recordBitrate = $("recordBitrate");
-const recordBitrateLabel = $("recordBitrateLabel");
-const minQualitySelect = $("minQualitySelect");
+    // Settings
+    "settingsBtn",
+    "themeBtn",
+    "sheetOverlay",
+    "sheet",
+    "closeSheetBtn",
 
-const torchBtn = $("torchBtn");
-const zoomRange = $("zoomRange");
-const zoomValue = $("zoomValue");
+    "cameraSelect",
+    "fpsSelect",
+    "previewResSelect",
+    "convertResSelect",
+    "recordBitrate",
+    "recordBitrateLabel",
+    "minQualitySelect",
 
-const torchLabel = $("torchLabel");
-const zoomLabel = $("zoomLabel");
+    "torchBtn",
+    "zoomRange",
+    "zoomValue",
 
-// Small status labels
-const cameraStateLabel = $("cameraStateLabel");
-const recStateLabel = $("recStateLabel");
-const convertStateLabel = $("convertStateLabel");
+    "torchLabel",
+    "zoomLabel",
 
-// Modal preview
-const modalOverlay = $("modalOverlay");
-const videoModal = $("videoModal");
-const closeModalBtn = $("closeModalBtn");
-const modalVideo = $("modalVideo");
-const modalMetaNote = $("modalMetaNote");
+    "cameraStateLabel",
+    "recStateLabel",
+    "convertStateLabel",
 
-// Combo tab (Video + Plot) refs (optional)
-const comboPreview = $("comboPreview");
-const comboHudText = $("comboHudText");
-const comboStateNote = $("comboStateNote");
+    // Modal preview
+    "modalOverlay",
+    "videoModal",
+    "closeModalBtn",
+    "modalVideo",
+    "modalMetaNote",
 
-const comboEnableCameraBtn = $("comboEnableCameraBtn");
-const comboRecordToggleBtn = $("comboRecordToggleBtn");
-const comboPauseBtn = $("comboPauseBtn");
+    // Combo tab
+    "comboPreview",
+    "comboHudText",
+    "comboStateNote",
+    "comboEnableCameraBtn",
+    "comboRecordToggleBtn",
+    "comboPauseBtn",
+    "comboStartPathBtn",
+    "comboDropPointBtn",
+    "comboCenterBtn",
+    "comboExitBtn",
 
-const comboStartPathBtn = $("comboStartPathBtn");
-const comboDropPointBtn = $("comboDropPointBtn");
-const comboCenterBtn = $("comboCenterBtn");
+    // Hidden tools for conversion
+    "xCanvas",
+    "xVideo",
+  ]),
+};
 
 // Map buttons (live in map tab; may be hidden while using combo tab)
-const startTrackBtn = document.getElementById("startTrackBtn");
-const dropPointBtn = document.getElementById("dropPointBtn");
-const mapCenterBtn = document.getElementById("mapCenterBtn");
+const MAP = {
+  startTrackBtn: $("startTrackBtn"),
+  dropPointBtn: $("dropPointBtn"),
+  mapCenterBtn: $("mapCenterBtn"),
+};
 
-function wireComboButtons() {
-  if (comboEnableCameraBtn && enableCameraBtn) {
-    comboEnableCameraBtn.addEventListener("click", () =>
-      enableCameraBtn.click(),
-    );
-  }
-  if (comboRecordToggleBtn && recordToggleBtn) {
-    comboRecordToggleBtn.addEventListener("click", () =>
-      recordToggleBtn.click(),
-    );
-  }
-  if (comboPauseBtn && pauseBtn) {
-    comboPauseBtn.addEventListener("click", () => pauseBtn.click());
-  }
-
-  // Map actions (trigger hidden map tab buttons)
-  if (comboStartPathBtn && startTrackBtn) {
-    comboStartPathBtn.addEventListener("click", () => startTrackBtn.click());
-  }
-  if (comboDropPointBtn && dropPointBtn) {
-    comboDropPointBtn.addEventListener("click", () => dropPointBtn.click());
-  }
-  if (comboCenterBtn && mapCenterBtn) {
-    comboCenterBtn.addEventListener("click", () => mapCenterBtn.click());
-  }
+/********************************************************************
+ * Tiny UI helpers
+ ********************************************************************/
+function show(el, on) {
+  if (!el) return;
+  el.style.display = on ? "block" : "none";
 }
-
-function syncComboUI() {
-  // Mirror the existing video recording UI state
-  if (comboRecordToggleBtn && recordToggleBtn) {
-    comboRecordToggleBtn.disabled = !!recordToggleBtn.disabled;
-    comboRecordToggleBtn.textContent =
-      recordToggleBtn.textContent || "⏺️ Record";
-    comboRecordToggleBtn.className = recordToggleBtn.className; // mirror styling (primary/danger)
-  }
-  if (comboPauseBtn && pauseBtn) {
-    comboPauseBtn.disabled = !!pauseBtn.disabled;
-    comboPauseBtn.textContent = pauseBtn.textContent || "⏸️ Pause";
-  }
-  if (comboEnableCameraBtn && enableCameraBtn) {
-    comboEnableCameraBtn.disabled = !!enableCameraBtn.disabled;
-  }
-
-  // Mirror map UI state (so buttons enable/disable correctly in combo tab)
-  if (comboStartPathBtn && startTrackBtn) {
-    comboStartPathBtn.textContent =
-      startTrackBtn.textContent || "▶️ Start path";
-    comboStartPathBtn.disabled = !!startTrackBtn.disabled;
-    comboStartPathBtn.className = startTrackBtn.className;
-  }
-  if (comboDropPointBtn && dropPointBtn) {
-    comboDropPointBtn.disabled = !!dropPointBtn.disabled;
-  }
-  if (comboCenterBtn && mapCenterBtn) {
-    comboCenterBtn.disabled = !!mapCenterBtn.disabled;
-  }
+function showInline(el, on) {
+  if (!el) return;
+  el.style.display = on ? "" : "none";
 }
-
-function updateComboHUD() {
-  if (!comboHudText) return;
-
-  const cam = cameraStateLabel ? cameraStateLabel.textContent : "—";
-  const rec = recStateLabel ? recStateLabel.textContent : "—";
-  const t = recTimeLabel ? recTimeLabel.textContent : "";
-  const sz = recSizeLabel ? recSizeLabel.textContent : "";
-
-  comboHudText.textContent = `Camera: ${cam} • Rec: ${rec} • ${t} • ${sz}`;
-  if (comboStateNote) comboStateNote.textContent = rec;
+function setText(el, txt) {
+  if (!el) return;
+  el.textContent = String(txt);
 }
-
-// Hidden tools for conversion
-const xCanvas = $("xCanvas");
-const xVideo = $("xVideo");
+function setEnabled(el, on) {
+  if (!el) return;
+  el.disabled = !on;
+}
+function setHtml(el, html) {
+  if (!el) return;
+  el.innerHTML = html;
+}
+function clamp(n, a, b) {
+  return Math.max(a, Math.min(b, n));
+}
 
 /********************************************************************
  * Local Storage (remember settings)
@@ -181,7 +158,7 @@ const xVideo = $("xVideo");
 const LS_KEYS = {
   THEME: "vd_theme",
   MODE: "vd_mode", // record | upload
-  FPS: "vd_fps", // default 30
+  FPS: "vd_fps",
   PREVIEW_RES: "vd_preview_res",
   CONVERT_RES: "vd_convert_res",
   BITRATE_KBPS: "vd_bitrate_kbps",
@@ -219,13 +196,12 @@ function lsGetBool(key, fallback) {
 /********************************************************************
  * Theme
  ********************************************************************/
-const THEME_KEY = LS_KEYS.THEME;
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
-  localStorage.setItem(THEME_KEY, theme);
+  localStorage.setItem(LS_KEYS.THEME, theme);
 }
-applyTheme(localStorage.getItem(THEME_KEY) || "dark");
-themeBtn.addEventListener("click", () => {
+applyTheme(localStorage.getItem(LS_KEYS.THEME) || "dark");
+UI.themeBtn?.addEventListener("click", () => {
   const cur = document.documentElement.getAttribute("data-theme") || "dark";
   applyTheme(cur === "dark" ? "light" : "dark");
 });
@@ -262,12 +238,19 @@ let lastResultLabel = "";
 let lastResultUrl = "";
 
 /********************************************************************
+ * Conversion progress state (NEW)
+ ********************************************************************/
+let convAttemptStartPerf = 0;
+let convLastProgressUpdatePerf = 0;
+
+/********************************************************************
  * Helpers
  ********************************************************************/
 function fmtMB(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 function fmtTime(sec) {
+  sec = Math.max(0, Math.floor(sec));
   if (sec < 60) return sec + "s";
   const m = Math.floor(sec / 60);
   const s = sec % 60;
@@ -320,82 +303,96 @@ function guessExtensionForMime(mime) {
  * UI updates
  ********************************************************************/
 function updateOutputBadges() {
-  const shown = preferredOutputMime || "(browser default)";
-  preferredMimeLabel.textContent = shown;
+  setText(UI.preferredMimeLabel, preferredOutputMime || "(browser default)");
 
   const compat = isGorillaDeskCompatibleMime(preferredOutputMime);
-  gdCompatLabel.textContent = compat ? "YES" : "NO";
-  gdCompatLabel.className = "mono " + (compat ? "ok" : "warn");
+  setText(UI.gdCompatLabel, compat ? "YES" : "NO");
+  if (UI.gdCompatLabel)
+    UI.gdCompatLabel.className = "mono " + (compat ? "ok" : "warn");
 
   const mp4Supported =
     safeIsTypeSupported("video/mp4") ||
     safeIsTypeSupported("video/mp4;codecs=avc1.42E01E,mp4a.40.2") ||
     safeIsTypeSupported("video/mp4;codecs=avc1.4D401E,mp4a.40.2");
 
-  mp4Banner.style.display = mp4Supported ? "none" : "block";
+  show(UI.mp4Banner, !mp4Supported);
 }
 
 function setMode(next) {
   mode = next;
   lsSet(LS_KEYS.MODE, mode);
 
-  if (mode === "record") {
-    tabRecord.classList.add("active");
-    tabUpload.classList.remove("active");
-    tabRecord.setAttribute("aria-selected", "true");
-    tabUpload.setAttribute("aria-selected", "false");
-    recordPanel.style.display = "";
-    uploadPanel.style.display = "none";
-  } else {
-    tabUpload.classList.add("active");
-    tabRecord.classList.remove("active");
-    tabUpload.setAttribute("aria-selected", "true");
-    tabRecord.setAttribute("aria-selected", "false");
-    uploadPanel.style.display = "";
-    recordPanel.style.display = "none";
-  }
+  const isRecord = mode === "record";
+  UI.tabRecord?.classList.toggle("active", isRecord);
+  UI.tabUpload?.classList.toggle("active", !isRecord);
+
+  UI.tabRecord?.setAttribute("aria-selected", isRecord ? "true" : "false");
+  UI.tabUpload?.setAttribute("aria-selected", !isRecord ? "true" : "false");
+
+  showInline(UI.recordPanel, isRecord);
+  showInline(UI.uploadPanel, !isRecord);
 
   updateConvertButtonState();
 }
 
 function updateConvertButtonState() {
-  convertBtn.disabled =
+  const blocked =
     !sourceBlob ||
     (mediaRecorder && mediaRecorder.state !== "inactive") ||
     cancelRequested;
 
-  convertStateLabel.textContent = convertBtn.disabled ? "Waiting…" : "Ready";
+  setEnabled(UI.convertBtn, !blocked);
+  setText(UI.convertStateLabel, blocked ? "Waiting…" : "Ready");
 }
 
-function showProgress(show) {
-  progressBox.style.display = show ? "block" : "none";
-  if (!show) {
-    attemptText.textContent = "—";
-    progressText.textContent = "—";
-    progressLog.textContent = "";
+function showProgress(on) {
+  show(UI.progressBox, on);
+  if (!on) {
+    setText(UI.attemptText, "—");
+    setText(UI.progressText, "—");
+    setText(UI.progressLog, "");
   }
+
+  // reset progress bar
+  if (UI.convBarFill) UI.convBarFill.style.width = "0%";
+  setText(UI.convPctLabel, on ? "0%" : "—");
+  setText(UI.convEtaLabel, on ? "—" : "—");
+
+  convAttemptStartPerf = 0;
+  convLastProgressUpdatePerf = 0;
 }
 
 function logProgress(line) {
-  progressLog.textContent = (progressLog.textContent + "\n" + line).trim();
-  progressLog.scrollTop = progressLog.scrollHeight;
+  if (!UI.progressLog) return;
+  UI.progressLog.textContent = (
+    UI.progressLog.textContent +
+    "\n" +
+    line
+  ).trim();
+  UI.progressLog.scrollTop = UI.progressLog.scrollHeight;
 }
 
 function updateRecUI() {
-  recSizeLabel.textContent = fmtMB(recordedBytes);
+  setText(UI.recSizeLabel, fmtMB(recordedBytes));
 
   const secs = startTs
     ? Math.max(0, Math.floor((Date.now() - startTs) / 1000))
     : 0;
-  recTimeLabel.textContent = fmtTime(secs);
+  setText(UI.recTimeLabel, fmtTime(secs));
 
   const pct = Math.min(100, (recordedBytes / MAX_BYTES) * 100);
-  recBarFill.style.width = pct.toFixed(1) + "%";
+  if (UI.recBarFill) UI.recBarFill.style.width = pct.toFixed(1) + "%";
 
-  torchLabel.textContent = torchBtn.disabled ? "n/a" : torchOn ? "On" : "Off";
-  zoomLabel.textContent = zoomRange.disabled
-    ? "n/a"
-    : Number(zoomRange.value).toFixed(1) + "x";
+  setText(
+    UI.torchLabel,
+    UI.torchBtn?.disabled ? "n/a" : torchOn ? "On" : "Off",
+  );
+  setText(
+    UI.zoomLabel,
+    UI.zoomRange?.disabled
+      ? "n/a"
+      : Number(UI.zoomRange.value).toFixed(1) + "x",
+  );
 }
 
 function clearResult() {
@@ -408,62 +405,120 @@ function clearResult() {
   lastResultBlob = null;
   lastResultLabel = "";
 
-  resultArea.innerHTML = `<div class="note">Converted output will appear here with Save/Share.</div>`;
+  setHtml(
+    UI.resultArea,
+    `<div class="note">Converted output will appear here with Save/Share.</div>`,
+  );
 }
 
-function openPreviewModal(blob, label) {
-  if (!blob || !modalOverlay || !videoModal || !modalVideo) return;
+/********************************************************************
+ * Conversion progress (NEW)
+ * - progress: 0..1
+ ********************************************************************/
+function setConversionProgress(progress01, curSec, durSec, attemptNumber) {
+  const p = clamp(progress01 || 0, 0, 1);
+  const pct = Math.round(p * 100);
 
-  modalOverlay.hidden = false;
-  videoModal.hidden = false;
-  videoModal.removeAttribute("inert");
+  if (UI.convBarFill) UI.convBarFill.style.width = pct + "%";
+  setText(UI.convPctLabel, `${pct}% (${fmtTime(curSec)} / ${fmtTime(durSec)})`);
+
+  // ETA estimate (simple, but useful)
+  const now = performance.now();
+  if (!convAttemptStartPerf) convAttemptStartPerf = now;
+  const elapsed = (now - convAttemptStartPerf) / 1000;
+
+  // throttle ETA text updates a bit
+  if (!convLastProgressUpdatePerf || now - convLastProgressUpdatePerf > 250) {
+    convLastProgressUpdatePerf = now;
+
+    if (p > 0.02) {
+      const totalEst = elapsed / p;
+      const eta = Math.max(0, totalEst - elapsed);
+      setText(UI.convEtaLabel, `~${fmtTime(eta)} (Attempt ${attemptNumber})`);
+    } else {
+      setText(UI.convEtaLabel, `Estimating… (Attempt ${attemptNumber})`);
+    }
+  }
+}
+
+/********************************************************************
+ * Preview modal (keeps inert behavior)
+ ********************************************************************/
+function openPreviewModal(blob, label) {
+  if (!blob || !UI.modalOverlay || !UI.videoModal || !UI.modalVideo) return;
+
+  UI.modalOverlay.hidden = false;
+  UI.videoModal.hidden = false;
+  UI.videoModal.removeAttribute("inert");
 
   const url = URL.createObjectURL(blob);
-  modalVideo.src = url;
-  videoModal.dataset.tempUrl = url;
+  UI.modalVideo.src = url;
+  UI.videoModal.dataset.tempUrl = url;
 
   const ext = guessExtensionForMime(blob.type || preferredOutputMime || "");
-  if (modalMetaNote) {
-    modalMetaNote.textContent = `${label || "Video"} • ${fmtMB(blob.size)} • ${
+  if (UI.modalMetaNote) {
+    UI.modalMetaNote.textContent = `${label || "Video"} • ${fmtMB(blob.size)} • ${
       blob.type || "video/*"
     } • .${ext}`;
   }
 
-  if (closeModalBtn) closeModalBtn.focus();
+  UI.closeModalBtn?.focus();
 
   setTimeout(() => {
     try {
-      modalVideo.play();
+      UI.modalVideo.play();
     } catch (_) {}
   }, 0);
 }
 
 function closePreviewModal() {
-  if (!modalOverlay || !videoModal || !modalVideo) return;
+  if (!UI.modalOverlay || !UI.videoModal || !UI.modalVideo) return;
 
-  if (videoModal.contains(document.activeElement)) {
+  if (UI.videoModal.contains(document.activeElement)) {
     document.activeElement.blur();
   }
 
   try {
-    modalVideo.pause();
+    UI.modalVideo.pause();
   } catch (_) {}
 
-  const tempUrl = videoModal.dataset.tempUrl || "";
+  const tempUrl = UI.videoModal.dataset.tempUrl || "";
   if (tempUrl) {
     try {
       URL.revokeObjectURL(tempUrl);
     } catch (_) {}
   }
-  videoModal.dataset.tempUrl = "";
+  UI.videoModal.dataset.tempUrl = "";
 
-  videoModal.setAttribute("inert", "");
-  videoModal.hidden = true;
-  modalOverlay.hidden = true;
+  UI.videoModal.setAttribute("inert", "");
+  UI.videoModal.hidden = true;
+  UI.modalOverlay.hidden = true;
 }
 
-if (closeModalBtn) closeModalBtn.addEventListener("click", closePreviewModal);
-if (modalOverlay) modalOverlay.addEventListener("click", closePreviewModal);
+UI.closeModalBtn?.addEventListener("click", closePreviewModal);
+UI.modalOverlay?.addEventListener("click", closePreviewModal);
+
+/********************************************************************
+ * Settings sheet (fixed bounds)
+ ********************************************************************/
+function openSheet() {
+  if (!UI.sheetOverlay || !UI.sheet) return;
+  UI.sheetOverlay.style.display = "block";
+  UI.sheet.style.transform = "translateY(0)";
+  UI.sheet.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+function closeSheet() {
+  if (!UI.sheetOverlay || !UI.sheet) return;
+  UI.sheetOverlay.style.display = "none";
+  UI.sheet.style.transform = "translateY(110%)";
+  UI.sheet.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+UI.settingsBtn?.addEventListener("click", openSheet);
+UI.closeSheetBtn?.addEventListener("click", closeSheet);
+UI.sheetOverlay?.addEventListener("click", closeSheet);
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
@@ -486,7 +541,9 @@ function renderResult(blob, label) {
   const okSize = blob.size <= MAX_BYTES - SAFETY_BYTES;
   const gdOk = isGorillaDeskCompatibleMime(blob.type || "");
 
-  resultArea.innerHTML = `
+  setHtml(
+    UI.resultArea,
+    `
     <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
       <span>${label || "Output"}: <span class="mono ${okSize ? "ok" : "warn"}">${fmtMB(
         blob.size,
@@ -514,60 +571,40 @@ function renderResult(blob, label) {
       This output is WebM. GorillaDesk won’t accept it. Use iPhone Safari over HTTPS (often supports MP4) or use FFmpeg/server conversion.
     </div>`
     }
-  `;
+  `,
+  );
 
-  const previewBtn = document.getElementById("previewBtn");
-  if (previewBtn)
-    previewBtn.addEventListener("click", () => openPreviewModal(blob, label));
+  const previewBtn = $("previewBtn");
+  previewBtn?.addEventListener("click", () => openPreviewModal(blob, label));
 
-  const shareBtn = document.getElementById("shareBtn");
-  if (shareBtn)
-    shareBtn.addEventListener("click", async () => {
-      try {
-        const file = new File([blob], `gorilladesk-video.${ext}`, {
-          type: blob.type || "video/*",
+  const shareBtn = $("shareBtn");
+  shareBtn?.addEventListener("click", async () => {
+    try {
+      const file = new File([blob], `gorilladesk-video.${ext}`, {
+        type: blob.type || "video/*",
+      });
+      if (
+        navigator.canShare &&
+        navigator.canShare({ files: [file] }) &&
+        navigator.share
+      ) {
+        await navigator.share({
+          files: [file],
+          title: "Video",
+          text: "Compressed video (≤ 50MB)",
         });
-        if (
-          navigator.canShare &&
-          navigator.canShare({ files: [file] }) &&
-          navigator.share
-        ) {
-          await navigator.share({
-            files: [file],
-            title: "Video",
-            text: "Compressed video (≤ 50MB)",
-          });
-        } else {
-          alert("Share is not supported here. Use Save instead.");
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Share failed on this device/browser. Use Save instead.");
+      } else {
+        alert("Share is not supported here. Use Save instead.");
       }
-    });
+    } catch (err) {
+      console.error(err);
+      alert("Share failed on this device/browser. Use Save instead.");
+    }
+  });
 }
 
 /********************************************************************
- * Settings sheet (fixed bounds)
- ********************************************************************/
-function openSheet() {
-  sheetOverlay.style.display = "block";
-  sheet.style.transform = "translateY(0)";
-  sheet.setAttribute("aria-hidden", "false");
-  document.body.style.overflow = "hidden";
-}
-function closeSheet() {
-  sheetOverlay.style.display = "none";
-  sheet.style.transform = "translateY(110%)";
-  sheet.setAttribute("aria-hidden", "true");
-  document.body.style.overflow = "";
-}
-settingsBtn.addEventListener("click", openSheet);
-closeSheetBtn.addEventListener("click", closeSheet);
-sheetOverlay.addEventListener("click", closeSheet);
-
-/********************************************************************
- * Camera controls
+ * Camera controls (torch/zoom)
  ********************************************************************/
 function getCapsSafe(track) {
   try {
@@ -583,7 +620,7 @@ async function applyTorch(on) {
     await videoTrack.applyConstraints({ advanced: [{ torch: !!on }] });
     torchOn = !!on;
     lsSet(LS_KEYS.TORCH_ON, torchOn);
-    torchBtn.textContent = torchOn ? "🔦 Torch: On" : "🔦 Torch: Off";
+    setText(UI.torchBtn, torchOn ? "🔦 Torch: On" : "🔦 Torch: Off");
     updateRecUI();
   } catch (e) {
     console.error(e);
@@ -596,7 +633,7 @@ async function applyZoom(z) {
   try {
     await videoTrack.applyConstraints({ advanced: [{ zoom: Number(z) }] });
     lsSet(LS_KEYS.ZOOM, Number(z));
-    zoomValue.textContent = Number(z).toFixed(1) + "x";
+    setText(UI.zoomValue, Number(z).toFixed(1) + "x");
     updateRecUI();
   } catch (e) {
     // ignore while sliding
@@ -605,11 +642,11 @@ async function applyZoom(z) {
 
 function setupTorchZoomUI() {
   torchOn = false;
-  torchBtn.disabled = true;
-  torchBtn.textContent = "🔦 Torch: n/a";
+  setEnabled(UI.torchBtn, false);
+  setText(UI.torchBtn, "🔦 Torch: n/a");
 
-  zoomRange.disabled = true;
-  zoomValue.textContent = "n/a";
+  setEnabled(UI.zoomRange, false);
+  setText(UI.zoomValue, "n/a");
 
   if (!videoTrack) {
     updateRecUI();
@@ -619,8 +656,8 @@ function setupTorchZoomUI() {
   const caps = getCapsSafe(videoTrack);
 
   if (caps.torch) {
-    torchBtn.disabled = false;
-    torchBtn.textContent = "🔦 Torch: Off";
+    setEnabled(UI.torchBtn, true);
+    setText(UI.torchBtn, "🔦 Torch: Off");
   }
 
   if (
@@ -628,10 +665,10 @@ function setupTorchZoomUI() {
     typeof caps.zoom.min === "number" &&
     typeof caps.zoom.max === "number"
   ) {
-    zoomRange.disabled = false;
-    zoomRange.min = caps.zoom.min;
-    zoomRange.max = caps.zoom.max;
-    zoomRange.step = caps.zoom.step || 0.1;
+    setEnabled(UI.zoomRange, true);
+    UI.zoomRange.min = caps.zoom.min;
+    UI.zoomRange.max = caps.zoom.max;
+    UI.zoomRange.step = caps.zoom.step || 0.1;
 
     const settings = (videoTrack.getSettings && videoTrack.getSettings()) || {};
     const zFromTrack =
@@ -640,15 +677,15 @@ function setupTorchZoomUI() {
     const zSaved = lsGetNum(LS_KEYS.ZOOM, zFromTrack);
     const zClamped = Math.min(caps.zoom.max, Math.max(caps.zoom.min, zSaved));
 
-    zoomRange.value = zClamped;
-    zoomValue.textContent = Number(zClamped).toFixed(1) + "x";
+    UI.zoomRange.value = zClamped;
+    setText(UI.zoomValue, Number(zClamped).toFixed(1) + "x");
   }
 
   updateRecUI();
 }
 
-torchBtn.addEventListener("click", () => applyTorch(!torchOn));
-zoomRange.addEventListener("input", (e) => applyZoom(e.target.value));
+UI.torchBtn?.addEventListener("click", () => applyTorch(!torchOn));
+UI.zoomRange?.addEventListener("input", (e) => applyZoom(e.target.value));
 
 /********************************************************************
  * Camera setup
@@ -661,13 +698,13 @@ function stopStream() {
 
   // Clear previews
   try {
-    preview.srcObject = null;
+    UI.preview.srcObject = null;
   } catch (_) {}
   try {
-    if (comboPreview) comboPreview.srcObject = null;
+    if (UI.comboPreview) UI.comboPreview.srcObject = null;
   } catch (_) {}
 
-  cameraStateLabel.textContent = "Not enabled";
+  setText(UI.cameraStateLabel, "Not enabled");
 }
 
 async function getDevices() {
@@ -693,30 +730,33 @@ function pickBestBackCameraId(cams) {
 }
 
 async function populateCameras() {
-  cameraSelect.innerHTML = "";
-  const cams = await getDevices();
+  if (!UI.cameraSelect) return;
+  UI.cameraSelect.innerHTML = "";
 
+  const cams = await getDevices();
   cams.forEach((cam, idx) => {
     const opt = document.createElement("option");
     opt.value = cam.deviceId;
     opt.textContent = cam.label || `Camera ${idx + 1}`;
-    cameraSelect.appendChild(opt);
+    UI.cameraSelect.appendChild(opt);
   });
 
   const bestId = pickBestBackCameraId(cams);
-  if (bestId) cameraSelect.value = bestId;
+  if (bestId) UI.cameraSelect.value = bestId;
 
-  if (cameraSelect.value) lsSet(LS_KEYS.CAMERA_ID, cameraSelect.value);
+  if (UI.cameraSelect.value) lsSet(LS_KEYS.CAMERA_ID, UI.cameraSelect.value);
 }
 
 async function startPreview() {
   stopStream();
   torchOn = false;
 
-  const [w, h] = previewResSelect.value.split("x").map(Number);
-  const fps = Number(fpsSelect.value) || 30;
+  const [w, h] = (UI.previewResSelect?.value || "1280x720")
+    .split("x")
+    .map(Number);
+  const fps = Number(UI.fpsSelect?.value) || 30;
 
-  const selectedId = cameraSelect.value || "";
+  const selectedId = UI.cameraSelect?.value || "";
   const savedId = lsGet(LS_KEYS.CAMERA_ID, "");
   const deviceIdToUse = selectedId || savedId || "";
 
@@ -733,30 +773,30 @@ async function startPreview() {
 
   stream = await navigator.mediaDevices.getUserMedia(constraints);
 
-  preview.srcObject = stream;
-  if (comboPreview) comboPreview.srcObject = stream;
+  UI.preview.srcObject = stream;
+  if (UI.comboPreview) UI.comboPreview.srcObject = stream;
 
   try {
-    await preview.play();
+    await UI.preview.play();
   } catch (_) {}
 
   videoTrack = stream.getVideoTracks()[0] || null;
   setupTorchZoomUI();
 
-  cameraStateLabel.textContent = "Enabled";
-  recordToggleBtn.disabled = false;
-  pauseBtn.disabled = true;
+  setText(UI.cameraStateLabel, "Enabled");
+  setEnabled(UI.recordToggleBtn, true);
+  setEnabled(UI.pauseBtn, false);
 
   // Sync cameraSelect with actual deviceId if present
   try {
     const settings =
       (videoTrack && videoTrack.getSettings && videoTrack.getSettings()) || {};
-    if (settings.deviceId && cameraSelect) {
-      const has = Array.from(cameraSelect.options).some(
+    if (settings.deviceId && UI.cameraSelect) {
+      const has = Array.from(UI.cameraSelect.options).some(
         (o) => o.value === settings.deviceId,
       );
       if (has) {
-        cameraSelect.value = settings.deviceId;
+        UI.cameraSelect.value = settings.deviceId;
         lsSet(LS_KEYS.CAMERA_ID, settings.deviceId);
       }
     }
@@ -764,28 +804,28 @@ async function startPreview() {
 
   // Restore torch (best-effort)
   const torchWanted = lsGetBool(LS_KEYS.TORCH_ON, false);
-  if (torchWanted && !torchBtn.disabled) {
+  if (torchWanted && UI.torchBtn && !UI.torchBtn.disabled) {
     try {
       await videoTrack.applyConstraints({ advanced: [{ torch: true }] });
       torchOn = true;
-      torchBtn.textContent = "🔦 Torch: On";
+      setText(UI.torchBtn, "🔦 Torch: On");
     } catch (_) {}
   }
 
   // Restore zoom (best-effort)
-  if (!zoomRange.disabled) {
-    const z = lsGetNum(LS_KEYS.ZOOM, Number(zoomRange.value));
+  if (UI.zoomRange && !UI.zoomRange.disabled) {
+    const z = lsGetNum(LS_KEYS.ZOOM, Number(UI.zoomRange.value));
     try {
       await applyZoom(z);
-      zoomRange.value = z;
+      UI.zoomRange.value = z;
     } catch (_) {}
   }
 
   updateRecUI();
 }
 
-cameraSelect.addEventListener("change", async () => {
-  lsSet(LS_KEYS.CAMERA_ID, cameraSelect.value || "");
+UI.cameraSelect?.addEventListener("change", async () => {
+  lsSet(LS_KEYS.CAMERA_ID, UI.cameraSelect.value || "");
   if (mediaRecorder && mediaRecorder.state !== "inactive") return;
   try {
     await startPreview();
@@ -794,8 +834,8 @@ cameraSelect.addEventListener("change", async () => {
   }
 });
 
-previewResSelect.addEventListener("change", async () => {
-  lsSet(LS_KEYS.PREVIEW_RES, previewResSelect.value);
+UI.previewResSelect?.addEventListener("change", async () => {
+  lsSet(LS_KEYS.PREVIEW_RES, UI.previewResSelect.value);
   if (mediaRecorder && mediaRecorder.state !== "inactive") return;
   try {
     await startPreview();
@@ -804,8 +844,8 @@ previewResSelect.addEventListener("change", async () => {
   }
 });
 
-fpsSelect.addEventListener("change", async () => {
-  lsSet(LS_KEYS.FPS, fpsSelect.value);
+UI.fpsSelect?.addEventListener("change", async () => {
+  lsSet(LS_KEYS.FPS, UI.fpsSelect.value);
   if (mediaRecorder && mediaRecorder.state !== "inactive") return;
   try {
     await startPreview();
@@ -833,7 +873,7 @@ function resetRecordingState() {
   if (tickTimer) clearInterval(tickTimer);
   tickTimer = null;
 
-  recStateLabel.textContent = "Idle";
+  setText(UI.recStateLabel, "Idle");
   updateRecUI();
 }
 
@@ -849,7 +889,7 @@ async function startRecording() {
   }
 
   cancelRequested = false;
-  cancelConvertBtn.disabled = true;
+  setEnabled(UI.cancelConvertBtn, false);
 
   resetRecordingState();
   clearResult();
@@ -857,7 +897,7 @@ async function startRecording() {
   const mimeType = bestRecorderMimeForCurrentDevice();
   const options = {};
   if (mimeType) options.mimeType = mimeType;
-  options.videoBitsPerSecond = Number(recordBitrate.value) * 1000;
+  options.videoBitsPerSecond = Number(UI.recordBitrate?.value || 1500) * 1000;
 
   try {
     mediaRecorder = new MediaRecorder(stream, options);
@@ -877,18 +917,18 @@ async function startRecording() {
   };
 
   mediaRecorder.onstop = () => {
-    recordToggleBtn.disabled = false;
-    pauseBtn.disabled = true;
-    resetBtn.disabled = false;
+    setEnabled(UI.recordToggleBtn, true);
+    setEnabled(UI.pauseBtn, false);
+    setEnabled(UI.resetBtn, true);
 
-    recordToggleBtn.classList.remove("danger");
-    recordToggleBtn.classList.add("primary");
-    recordToggleBtn.textContent = "⏺️ Record";
+    UI.recordToggleBtn?.classList.remove("danger");
+    UI.recordToggleBtn?.classList.add("primary");
+    setText(UI.recordToggleBtn, "⏺️ Record");
 
     if (tickTimer) clearInterval(tickTimer);
     tickTimer = null;
 
-    recStateLabel.textContent = "Stopped";
+    setText(UI.recStateLabel, "Stopped");
 
     const type = mediaRecorder.mimeType || mimeType || "video/webm";
     const blob = new Blob(chunks, { type });
@@ -901,29 +941,29 @@ async function startRecording() {
   };
 
   mediaRecorder.onpause = () => {
-    recStateLabel.textContent = "Paused";
-    pauseBtn.textContent = "▶️ Resume";
+    setText(UI.recStateLabel, "Paused");
+    setText(UI.pauseBtn, "▶️ Resume");
   };
 
   mediaRecorder.onresume = () => {
-    recStateLabel.textContent = "Recording";
-    pauseBtn.textContent = "⏸️ Pause";
+    setText(UI.recStateLabel, "Recording");
+    setText(UI.pauseBtn, "⏸️ Pause");
   };
 
   mediaRecorder.start(TIMESLICE_MS);
   startTs = Date.now();
 
-  recStateLabel.textContent = "Recording";
+  setText(UI.recStateLabel, "Recording");
 
-  recordToggleBtn.disabled = false;
-  recordToggleBtn.classList.remove("primary");
-  recordToggleBtn.classList.add("danger");
-  recordToggleBtn.textContent = "⏹️ Stop";
+  setEnabled(UI.recordToggleBtn, true);
+  UI.recordToggleBtn?.classList.remove("primary");
+  UI.recordToggleBtn?.classList.add("danger");
+  setText(UI.recordToggleBtn, "⏹️ Stop");
 
-  pauseBtn.disabled = false;
-  pauseBtn.textContent = "⏸️ Pause";
+  setEnabled(UI.pauseBtn, true);
+  setText(UI.pauseBtn, "⏸️ Pause");
 
-  resetBtn.disabled = true;
+  setEnabled(UI.resetBtn, false);
 
   tickTimer = setInterval(updateRecUI, 400);
   updateRecUI();
@@ -962,14 +1002,14 @@ function togglePause() {
   }
 }
 
-recordToggleBtn.addEventListener("click", toggleRecord);
-pauseBtn.addEventListener("click", togglePause);
+UI.recordToggleBtn?.addEventListener("click", toggleRecord);
+UI.pauseBtn?.addEventListener("click", togglePause);
 
 /********************************************************************
  * Upload
  ********************************************************************/
-fileInput.addEventListener("change", async () => {
-  const f = fileInput.files && fileInput.files[0];
+UI.fileInput?.addEventListener("change", async () => {
+  const f = UI.fileInput.files && UI.fileInput.files[0];
   if (!f) {
     sourceBlob = null;
     updateConvertButtonState();
@@ -979,7 +1019,7 @@ fileInput.addEventListener("change", async () => {
   sourceBlob = f;
   sourceLabel = "Uploaded";
   cancelRequested = false;
-  cancelConvertBtn.disabled = true;
+  setEnabled(UI.cancelConvertBtn, false);
 
   updateConvertButtonState();
   clearResult();
@@ -1051,44 +1091,53 @@ async function transcodeViaCanvas(
   fps,
   videoBps,
   audioBps,
+  attemptNumber,
 ) {
   if (cancelRequested) throw new Error("cancelled");
 
   const inputUrl = URL.createObjectURL(inputBlob);
-  xVideo.src = inputUrl;
-  xVideo.muted = false;
-  xVideo.playsInline = true;
-  xVideo.preload = "auto";
+
+  // SILENT conversion playback
+  UI.xVideo.src = inputUrl;
+  UI.xVideo.muted = true;
+  UI.xVideo.volume = 0;
+  UI.xVideo.playsInline = true;
+  UI.xVideo.preload = "auto";
 
   await new Promise((resolve, reject) => {
-    xVideo.onloadedmetadata = () => resolve();
-    xVideo.onerror = () =>
+    UI.xVideo.onloadedmetadata = () => resolve();
+    UI.xVideo.onerror = () =>
       reject(new Error("Failed to load video for conversion"));
   });
 
-  xCanvas.width = outW;
-  xCanvas.height = outH;
-  const ctx = xCanvas.getContext("2d", { alpha: false });
+  const dur = Number.isFinite(UI.xVideo.duration) ? UI.xVideo.duration : 0;
 
-  const canvasStream = xCanvas.captureStream(fps);
+  UI.xCanvas.width = outW;
+  UI.xCanvas.height = outH;
+  const ctx = UI.xCanvas.getContext("2d", { alpha: false });
 
-  // Best-effort audio capture
+  const canvasStream = UI.xCanvas.captureStream(fps);
+
+  // Best-effort audio capture WITHOUT routing to speakers
   let mixedStream = canvasStream;
   try {
     const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const srcNode = ac.createMediaElementSource(xVideo);
+    const srcNode = ac.createMediaElementSource(UI.xVideo);
     const dest = ac.createMediaStreamDestination();
-    srcNode.connect(dest);
-    srcNode.connect(ac.destination);
-    const audioTrack = dest.stream.getAudioTracks()[0] || null;
 
+    // capture audio into dest (no ac.destination connect)
+    srcNode.connect(dest);
+
+    const audioTrack = dest.stream.getAudioTracks()[0] || null;
     if (audioTrack) {
       mixedStream = new MediaStream([
         ...canvasStream.getVideoTracks(),
         audioTrack,
       ]);
     }
-  } catch (_) {}
+  } catch (_) {
+    // audio capture may fail on some browsers; video-only still works
+  }
 
   const outMime = bestRecorderMimeForCurrentDevice();
   const options = {};
@@ -1111,10 +1160,13 @@ async function transcodeViaCanvas(
     if (ev.data && ev.data.size > 0) outChunks.push(ev.data);
   };
 
-  // Draw loop
+  // Draw loop + progress reporting
   let rafId = 0;
   let lastFrameTs = 0;
   const frameInterval = 1000 / fps;
+
+  convAttemptStartPerf = performance.now();
+  convLastProgressUpdatePerf = 0;
 
   function drawFrame(ts) {
     if (cancelRequested) {
@@ -1127,8 +1179,8 @@ async function transcodeViaCanvas(
     if (!lastFrameTs || ts - lastFrameTs >= frameInterval) {
       lastFrameTs = ts;
 
-      const vw = xVideo.videoWidth || outW;
-      const vh = xVideo.videoHeight || outH;
+      const vw = UI.xVideo.videoWidth || outW;
+      const vh = UI.xVideo.videoHeight || outH;
 
       const scale = Math.min(outW / vw, outH / vh);
       const dw = Math.floor(vw * scale);
@@ -1138,7 +1190,12 @@ async function transcodeViaCanvas(
 
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, outW, outH);
-      ctx.drawImage(xVideo, 0, 0, vw, vh, dx, dy, dw, dh);
+      ctx.drawImage(UI.xVideo, 0, 0, vw, vh, dx, dy, dw, dh);
+
+      // progress update
+      const cur = UI.xVideo.currentTime || 0;
+      const progress01 = dur > 0 ? cur / dur : 0;
+      setConversionProgress(progress01, cur, dur, attemptNumber);
     }
 
     rafId = requestAnimationFrame(drawFrame);
@@ -1151,13 +1208,16 @@ async function transcodeViaCanvas(
   });
 
   recorder.start(1000);
+
+  // Start playback (still silent)
   try {
-    await xVideo.play();
+    await UI.xVideo.play();
   } catch (_) {}
+
   rafId = requestAnimationFrame(drawFrame);
 
   await new Promise((resolve) => {
-    xVideo.onended = () => resolve();
+    UI.xVideo.onended = () => resolve();
   });
 
   cancelAnimationFrame(rafId);
@@ -1174,13 +1234,13 @@ async function transcodeViaCanvas(
 
 async function compressIteratively(inputBlob) {
   cancelRequested = false;
-  cancelConvertBtn.disabled = false;
-  convertBtn.disabled = true;
+  setEnabled(UI.cancelConvertBtn, true);
+  setEnabled(UI.convertBtn, false);
 
   showProgress(true);
-  attemptText.textContent = "—";
-  progressText.textContent = "Starting…";
-  progressLog.textContent = "";
+  setText(UI.attemptText, "—");
+  setText(UI.progressText, "Starting…");
+  setText(UI.progressLog, "");
 
   const targetBytes = MAX_BYTES - SAFETY_BYTES;
 
@@ -1196,9 +1256,11 @@ async function compressIteratively(inputBlob) {
     return inputBlob;
   }
 
-  const maxRes = parseWH(convertResSelect.value);
+  const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
 
-  const [minResStr, minKbpsStr] = minQualitySelect.value.split("|");
+  const [minResStr, minKbpsStr] = (
+    UI.minQualitySelect?.value || "640x360|250"
+  ).split("|");
   const minRes = parseWH(minResStr);
   const minVideoBps = Number(minKbpsStr) * 1000;
 
@@ -1217,7 +1279,7 @@ async function compressIteratively(inputBlob) {
   outW = startTier.w;
   outH = startTier.h;
 
-  const fps = Number(fpsSelect.value) || 30;
+  const fps = Number(UI.fpsSelect?.value) || 30;
 
   let attempt = 0;
   const MAX_ATTEMPTS = 10;
@@ -1232,8 +1294,15 @@ async function compressIteratively(inputBlob) {
     if (cancelRequested) throw new Error("cancelled");
 
     attempt++;
-    attemptText.textContent = String(attempt);
-    progressText.textContent = "Encoding…";
+    setText(UI.attemptText, String(attempt));
+    setText(UI.progressText, "Encoding…");
+
+    // reset progress bar each attempt
+    if (UI.convBarFill) UI.convBarFill.style.width = "0%";
+    setText(UI.convPctLabel, "0%");
+    setText(UI.convEtaLabel, `Estimating… (Attempt ${attempt})`);
+    convAttemptStartPerf = performance.now();
+    convLastProgressUpdatePerf = 0;
 
     logProgress(`\n--- Attempt ${attempt} ---`);
     logProgress(
@@ -1249,6 +1318,7 @@ async function compressIteratively(inputBlob) {
         fps,
         videoBps,
         audioBps,
+        attempt,
       );
     } catch (e) {
       logProgress(`Convert error: ${e.message || e}`);
@@ -1271,7 +1341,10 @@ async function compressIteratively(inputBlob) {
 
     if (outBlob.size <= targetBytes) {
       logProgress(`✅ Success under limit (≤ ${fmtMB(targetBytes)}).`);
-      progressText.textContent = "Done";
+      setText(UI.progressText, "Done");
+      if (UI.convBarFill) UI.convBarFill.style.width = "100%";
+      setText(UI.convPctLabel, "100%");
+      setText(UI.convEtaLabel, "0s");
       return outBlob;
     }
 
@@ -1310,12 +1383,12 @@ async function compressIteratively(inputBlob) {
 /********************************************************************
  * Convert
  ********************************************************************/
-convertBtn.addEventListener("click", async () => {
+UI.convertBtn?.addEventListener("click", async () => {
   if (!sourceBlob) return;
 
   cancelRequested = false;
-  cancelConvertBtn.disabled = false;
-  convertBtn.disabled = true;
+  setEnabled(UI.cancelConvertBtn, true);
+  setEnabled(UI.convertBtn, false);
 
   try {
     clearResult();
@@ -1327,13 +1400,13 @@ convertBtn.addEventListener("click", async () => {
     const out = await compressIteratively(sourceBlob);
 
     showProgress(false);
-    cancelConvertBtn.disabled = true;
+    setEnabled(UI.cancelConvertBtn, false);
     cancelRequested = false;
 
     renderResult(out, "Final (≤ 50MB)");
   } catch (e) {
     showProgress(false);
-    cancelConvertBtn.disabled = true;
+    setEnabled(UI.cancelConvertBtn, false);
 
     const msg = e && e.message ? e.message : String(e);
     alert(msg);
@@ -1344,17 +1417,17 @@ convertBtn.addEventListener("click", async () => {
   }
 });
 
-cancelConvertBtn.addEventListener("click", () => {
+UI.cancelConvertBtn?.addEventListener("click", () => {
   cancelRequested = true;
-  cancelConvertBtn.disabled = true;
+  setEnabled(UI.cancelConvertBtn, false);
   logProgress("Cancel requested…");
-  progressText.textContent = "Cancelling…";
+  setText(UI.progressText, "Cancelling…");
 });
 
 /********************************************************************
  * Enable/restart camera (gesture-required on iOS)
  ********************************************************************/
-enableCameraBtn.addEventListener("click", async () => {
+UI.enableCameraBtn?.addEventListener("click", async () => {
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       alert("This browser does not support camera access.");
@@ -1368,20 +1441,23 @@ enableCameraBtn.addEventListener("click", async () => {
 
     lsSet(LS_KEYS.AUTO_ENABLE_CAMERA, true);
 
-    // Start preview first (permission grants labels), then populate, then restart with selected
     await startPreview();
     await populateCameras();
 
-    if (!cameraSelect.value && cameraSelect.options[0]) {
-      cameraSelect.value = cameraSelect.options[0].value;
-      lsSet(LS_KEYS.CAMERA_ID, cameraSelect.value);
+    if (
+      UI.cameraSelect &&
+      !UI.cameraSelect.value &&
+      UI.cameraSelect.options[0]
+    ) {
+      UI.cameraSelect.value = UI.cameraSelect.options[0].value;
+      lsSet(LS_KEYS.CAMERA_ID, UI.cameraSelect.value);
     }
     await startPreview();
 
-    restartPreviewBtn.disabled = false;
-    recordToggleBtn.disabled = false;
+    setEnabled(UI.restartPreviewBtn, true);
+    setEnabled(UI.recordToggleBtn, true);
 
-    cameraStateLabel.textContent = "Enabled";
+    setText(UI.cameraStateLabel, "Enabled");
   } catch (e) {
     console.error(e);
     alert(
@@ -1390,7 +1466,7 @@ enableCameraBtn.addEventListener("click", async () => {
   }
 });
 
-restartPreviewBtn.addEventListener("click", async () => {
+UI.restartPreviewBtn?.addEventListener("click", async () => {
   try {
     await startPreview();
   } catch (e) {
@@ -1402,34 +1478,96 @@ restartPreviewBtn.addEventListener("click", async () => {
 /********************************************************************
  * Reset
  ********************************************************************/
-resetBtn.addEventListener("click", () => {
+UI.resetBtn?.addEventListener("click", () => {
   resetRecordingState();
   clearResult();
   sourceBlob = null;
   sourceLabel = "";
   updateConvertButtonState();
-  resetBtn.disabled = true;
+  setEnabled(UI.resetBtn, false);
 });
 
 /********************************************************************
  * Tabs
  ********************************************************************/
-tabRecord.addEventListener("click", () => setMode("record"));
-tabUpload.addEventListener("click", () => setMode("upload"));
+UI.tabRecord?.addEventListener("click", () => setMode("record"));
+UI.tabUpload?.addEventListener("click", () => setMode("upload"));
 
 /********************************************************************
  * Settings live updates + persist
  ********************************************************************/
-recordBitrate.addEventListener("input", () => {
-  recordBitrateLabel.textContent = recordBitrate.value;
-  lsSet(LS_KEYS.BITRATE_KBPS, recordBitrate.value);
+UI.recordBitrate?.addEventListener("input", () => {
+  setText(UI.recordBitrateLabel, UI.recordBitrate.value);
+  lsSet(LS_KEYS.BITRATE_KBPS, UI.recordBitrate.value);
 });
-convertResSelect.addEventListener("change", () => {
-  lsSet(LS_KEYS.CONVERT_RES, convertResSelect.value);
+UI.convertResSelect?.addEventListener("change", () => {
+  lsSet(LS_KEYS.CONVERT_RES, UI.convertResSelect.value);
 });
-minQualitySelect.addEventListener("change", () => {
-  lsSet(LS_KEYS.MIN_QUALITY, minQualitySelect.value);
+UI.minQualitySelect?.addEventListener("change", () => {
+  lsSet(LS_KEYS.MIN_QUALITY, UI.minQualitySelect.value);
 });
+
+/********************************************************************
+ * Combo tab wiring (Video + Plot)
+ ********************************************************************/
+function wireComboButtons() {
+  UI.comboEnableCameraBtn?.addEventListener("click", () =>
+    UI.enableCameraBtn?.click(),
+  );
+  UI.comboRecordToggleBtn?.addEventListener("click", () =>
+    UI.recordToggleBtn?.click(),
+  );
+  UI.comboPauseBtn?.addEventListener("click", () => UI.pauseBtn?.click());
+
+  UI.comboStartPathBtn?.addEventListener("click", () =>
+    MAP.startTrackBtn?.click(),
+  );
+  UI.comboDropPointBtn?.addEventListener("click", () =>
+    MAP.dropPointBtn?.click(),
+  );
+  UI.comboCenterBtn?.addEventListener("click", () => MAP.mapCenterBtn?.click());
+}
+
+function syncComboUI() {
+  if (UI.comboRecordToggleBtn && UI.recordToggleBtn) {
+    UI.comboRecordToggleBtn.disabled = !!UI.recordToggleBtn.disabled;
+    UI.comboRecordToggleBtn.textContent =
+      UI.recordToggleBtn.textContent || "⏺️ Record";
+    UI.comboRecordToggleBtn.className = UI.recordToggleBtn.className;
+  }
+  if (UI.comboPauseBtn && UI.pauseBtn) {
+    UI.comboPauseBtn.disabled = !!UI.pauseBtn.disabled;
+    UI.comboPauseBtn.textContent = UI.pauseBtn.textContent || "⏸️ Pause";
+  }
+  if (UI.comboEnableCameraBtn && UI.enableCameraBtn) {
+    UI.comboEnableCameraBtn.disabled = !!UI.enableCameraBtn.disabled;
+  }
+
+  if (UI.comboStartPathBtn && MAP.startTrackBtn) {
+    UI.comboStartPathBtn.textContent =
+      MAP.startTrackBtn.textContent || "▶️ Start path";
+    UI.comboStartPathBtn.disabled = !!MAP.startTrackBtn.disabled;
+    UI.comboStartPathBtn.className = MAP.startTrackBtn.className;
+  }
+  if (UI.comboDropPointBtn && MAP.dropPointBtn) {
+    UI.comboDropPointBtn.disabled = !!MAP.dropPointBtn.disabled;
+  }
+  if (UI.comboCenterBtn && MAP.mapCenterBtn) {
+    UI.comboCenterBtn.disabled = !!MAP.mapCenterBtn.disabled;
+  }
+}
+
+function updateComboHUD() {
+  if (!UI.comboHudText) return;
+
+  const cam = UI.cameraStateLabel ? UI.cameraStateLabel.textContent : "—";
+  const rec = UI.recStateLabel ? UI.recStateLabel.textContent : "—";
+  const t = UI.recTimeLabel ? UI.recTimeLabel.textContent : "";
+  const sz = UI.recSizeLabel ? UI.recSizeLabel.textContent : "";
+
+  UI.comboHudText.textContent = `Camera: ${cam} • Rec: ${rec} • ${t} • ${sz}`;
+  if (UI.comboStateNote) UI.comboStateNote.textContent = rec;
+}
 
 /********************************************************************
  * Init (restore settings)
@@ -1439,35 +1577,40 @@ function restoreSettingsFromStorage() {
   mode = savedMode === "upload" ? "upload" : "record";
 
   const savedFps = lsGet(LS_KEYS.FPS, "");
-  if (savedFps) fpsSelect.value = savedFps;
-  if (!fpsSelect.value) fpsSelect.value = "30";
+  if (savedFps && UI.fpsSelect) UI.fpsSelect.value = savedFps;
+  if (UI.fpsSelect && !UI.fpsSelect.value) UI.fpsSelect.value = "30";
 
   const savedPrevRes = lsGet(LS_KEYS.PREVIEW_RES, "");
-  if (savedPrevRes) previewResSelect.value = savedPrevRes;
+  if (savedPrevRes && UI.previewResSelect)
+    UI.previewResSelect.value = savedPrevRes;
 
   const savedConvRes = lsGet(LS_KEYS.CONVERT_RES, "");
-  if (savedConvRes) convertResSelect.value = savedConvRes;
+  if (savedConvRes && UI.convertResSelect)
+    UI.convertResSelect.value = savedConvRes;
 
   const savedBitrate = lsGet(LS_KEYS.BITRATE_KBPS, "");
-  if (savedBitrate) recordBitrate.value = savedBitrate;
+  if (savedBitrate && UI.recordBitrate) UI.recordBitrate.value = savedBitrate;
 
   const savedMinQ = lsGet(LS_KEYS.MIN_QUALITY, "");
-  if (savedMinQ) minQualitySelect.value = savedMinQ;
+  if (savedMinQ && UI.minQualitySelect) UI.minQualitySelect.value = savedMinQ;
 
-  recordBitrateLabel.textContent = recordBitrate.value;
+  if (UI.recordBitrateLabel && UI.recordBitrate) {
+    UI.recordBitrateLabel.textContent = UI.recordBitrate.value;
+  }
 
-  cameraStateLabel.textContent = lsGetBool(LS_KEYS.AUTO_ENABLE_CAMERA, false)
-    ? "Tap Enable"
-    : "Not enabled";
-  recStateLabel.textContent = "Idle";
-  convertStateLabel.textContent = "Ready";
+  setText(
+    UI.cameraStateLabel,
+    lsGetBool(LS_KEYS.AUTO_ENABLE_CAMERA, false) ? "Tap Enable" : "Not enabled",
+  );
+  setText(UI.recStateLabel, "Idle");
+  setText(UI.convertStateLabel, "Ready");
 }
 
 function init() {
-  limitLabel.textContent = fmtMB(MAX_BYTES);
+  setText(UI.limitLabel, fmtMB(MAX_BYTES));
   restoreSettingsFromStorage();
 
-  if (!isSecureEnoughForCamera()) secureBanner.style.display = "block";
+  show(UI.secureBanner, !isSecureEnoughForCamera());
 
   preferredOutputMime = pickPreferredOutputMime();
   updateOutputBadges();
@@ -1476,10 +1619,15 @@ function init() {
   updateRecUI();
   clearResult();
 
-  recordToggleBtn.disabled = true;
-  pauseBtn.disabled = true;
-  restartPreviewBtn.disabled = true;
-  resetBtn.disabled = true;
+  setEnabled(UI.recordToggleBtn, false);
+  setEnabled(UI.pauseBtn, false);
+  setEnabled(UI.restartPreviewBtn, false);
+  setEnabled(UI.resetBtn, false);
+
+  // ensure progress UI exists
+  if (UI.convBarFill) UI.convBarFill.style.width = "0%";
+  setText(UI.convPctLabel, "—");
+  setText(UI.convEtaLabel, "—");
 }
 
 init();

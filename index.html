@@ -41,7 +41,7 @@
           role="tab"
           aria-selected="true"
         >
-          🎥 Video
+          🎥 Video Only
         </button>
         <button
           id="appTabMap"
@@ -59,7 +59,7 @@
           role="tab"
           aria-selected="false"
         >
-          🎥🗺️ Combo
+          🎥🗺️ Video / Map
         </button>
       </div>
     </header>
@@ -103,7 +103,7 @@
             </div>
 
             <div class="actions tight">
-              <button id="enableCameraBtn" class="btn primary" type="button">
+              <button id="enableCameraBtn" class="btn" type="button">
                 📷 Enable
               </button>
               <button id="restartPreviewBtn" class="btn" type="button" disabled>
@@ -172,12 +172,7 @@
               </div>
 
               <div class="actions tight">
-                <button
-                  id="recordToggleBtn"
-                  class="btn primary"
-                  type="button"
-                  disabled
-                >
+                <button id="recordToggleBtn" class="btn" type="button" disabled>
                   ⏺️ Record
                 </button>
                 <button id="pauseBtn" class="btn" type="button" disabled>
@@ -239,12 +234,7 @@
             </div>
 
             <div class="actions tight">
-              <button
-                id="convertBtn"
-                class="btn primary"
-                type="button"
-                disabled
-              >
+              <button id="convertBtn" class="btn" type="button" disabled>
                 🧪 Convert ≤ 50MB
               </button>
               <button id="cancelConvertBtn" class="btn" type="button" disabled>
@@ -257,6 +247,24 @@
                 <div>Attempt: <span class="mono" id="attemptText">—</span></div>
                 <div>Status: <span class="mono" id="progressText">—</span></div>
               </div>
+
+              <!-- NEW: per-attempt progress bar -->
+              <div class="status compact" style="margin-top: 8px">
+                <span class="pill"
+                  >Progress: <span class="mono" id="convPctLabel">—</span></span
+                >
+                <span class="pill"
+                  >ETA: <span class="mono" id="convEtaLabel">—</span></span
+                >
+              </div>
+              <div
+                class="bar"
+                title="Conversion progress for the current attempt"
+                style="margin-top: 8px"
+              >
+                <div id="convBarFill"></div>
+              </div>
+
               <div class="log mono" id="progressLog"></div>
             </div>
 
@@ -273,7 +281,6 @@
       <!-- COMBO TAB (FULLSCREEN)    -->
       <!-- ========================= -->
       <section id="comboTabPanel" class="card" style="display: none">
-        <!-- Kept for structure; hidden in combo-mode via CSS -->
         <h2>
           <span>Video + Plot</span>
           <span class="pill"
@@ -285,14 +292,12 @@
           <div class="comboFullscreenStage" aria-label="combo fullscreen stage">
             <video id="comboPreview" playsinline muted autoplay></video>
 
-            <!-- Top HUD -->
             <div class="comboHud" aria-live="polite">
               <span class="pill mono" id="comboHudText">
                 Camera: — • Rec: — • Points: 0 • Path: 0
               </span>
             </div>
 
-            <!-- GTA-style minimap overlay -->
             <div class="miniMapWrap" aria-label="minimap">
               <div id="minimap" class="miniMap"></div>
               <div class="miniReadout mono" id="miniReadout">
@@ -300,7 +305,6 @@
               </div>
             </div>
 
-            <!-- Bottom control dock (overlay) -->
             <div class="comboDock" aria-label="combo controls">
               <div class="comboDockInner">
                 <div class="comboDockTopRow">
@@ -308,16 +312,12 @@
                     <div class="mono" id="comboStateNote">Ready</div>
                   </div>
                   <div class="comboDockActions">
-                    <button
-                      id="comboEnableCameraBtn"
-                      class="btn primary"
-                      type="button"
-                    >
+                    <button id="comboEnableCameraBtn" class="btn" type="button">
                       📷 Enable
                     </button>
                     <button
                       id="comboRecordToggleBtn"
-                      class="btn primary"
+                      class="btn"
                       type="button"
                       disabled
                     >
@@ -335,11 +335,7 @@
                 </div>
 
                 <div class="comboDockBottomRow">
-                  <button
-                    id="comboStartPathBtn"
-                    class="btn primary"
-                    type="button"
-                  >
+                  <button id="comboStartPathBtn" class="btn" type="button">
                     ▶️ Start path
                   </button>
                   <button
@@ -366,8 +362,6 @@
                 <div class="comboDockHint note">
                   Tip: Record video and track your walking path at the same
                   time. The minimap stays north-up.
-
-                  <!--TODO back to main tab -->
                 </div>
               </div>
             </div>
@@ -379,6 +373,7 @@
       <!-- MAP TAB                  -->
       <!-- ========================= -->
       <section id="mapTabPanel" class="card" style="display: none">
+        <!-- unchanged -->
         <h2>
           <span>Map / Plot</span>
           <span class="pill">North-up • Satellite • GPS</span>
@@ -396,7 +391,6 @@
           <div class="mapFrame">
             <div id="map" class="map"></div>
 
-            <!-- Floating controls -->
             <div class="mapControls" aria-label="map controls">
               <button id="mapZoomInBtn" class="btn mapBtn" type="button">
                 ＋
@@ -413,11 +407,7 @@
                   <button id="mapPanLeftBtn" class="btn mapBtn" type="button">
                     ←
                   </button>
-                  <button
-                    id="mapCenterBtn"
-                    class="btn mapBtn primary"
-                    type="button"
-                  >
+                  <button id="mapCenterBtn" class="btn mapBtn" type="button">
                     ◎
                   </button>
                   <button id="mapPanRightBtn" class="btn mapBtn" type="button">
@@ -430,9 +420,8 @@
               </div>
             </div>
 
-            <!-- Bottom action bar -->
             <div class="mapActionBar">
-              <button id="startTrackBtn" class="btn primary" type="button">
+              <button id="startTrackBtn" class="btn" type="button">
                 ▶️ Start path
               </button>
               <button id="dropPointBtn" class="btn" type="button" disabled>
@@ -451,7 +440,6 @@
               </button>
             </div>
 
-            <!-- Small readout -->
             <div class="mapReadout mono" id="mapReadout">
               GPS: — • Points: 0 • Path: 0
             </div>
@@ -463,7 +451,6 @@
             “drop points.”
           </div>
 
-          <!-- Export result -->
           <div id="mapExportArea" class="mapExportArea" style="display: none">
             <div class="groupCard">
               <div class="groupTop">
@@ -472,10 +459,7 @@
               </div>
               <img id="mapExportImg" alt="Map export preview" />
               <div class="actions tight" style="margin-top: 10px">
-                <a
-                  id="mapDownloadLink"
-                  class="btn primary"
-                  download="map-export.png"
+                <a id="mapDownloadLink" class="btn" download="map-export.png"
                   >⬇️ Download</a
                 >
               </div>
@@ -505,11 +489,13 @@
       role="dialog"
       aria-modal="true"
     >
+      <!-- unchanged -->
       <div class="sheetHeader">
         <h3>Settings</h3>
         <button id="closeSheetBtn" class="btn" type="button">✖️ Close</button>
       </div>
       <div class="sheetBody">
+        <!-- unchanged -->
         <div class="twoCol">
           <div>
             <label for="cameraSelect">Camera</label>

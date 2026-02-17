@@ -131,9 +131,15 @@ main {
   user-select: none;
   min-height: 44px;
   white-space: nowrap;
+  background-color: hsla(211, 100%, 65%, 0.658);
 
   /* ✅ important: anchors styled as buttons too */
   text-decoration: none;
+}
+
+.btn:hover {
+  background-color: hsla(211, 100%, 65%, 0.85);
+  transition: background-color 0.2s ease;
 }
 
 .btn.primary {
