@@ -1270,19 +1270,19 @@ async function compressIteratively(inputBlob) {
 
   const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
 
-  // const [minResStr, minKbpsStr] = (
-  //   UI.minQualitySelect?.value || "640x360|250"
-  // ).split("|");
-  // const minRes = parseWH(minResStr);
-  // const minVideoBps = Number(minKbpsStr) * 1000;
+  const [minResStr, minKbpsStr] = (
+    UI.minQualitySelect?.value || "640x360|250"
+  ).split("|");
+  const minRes = parseWH(minResStr);
+  const minVideoBps = Number(minKbpsStr) * 1000;
 
-  // const tiers = [
-  //   { w: 1280, h: 720 },
-  //   { w: 854, h: 480 },
-  //   { w: 640, h: 360 },
-  //   { w: 426, h: 240 },
-  //   { w: 320, h: 180 },
-  // ];
+  const tiers = [
+    { w: 1280, h: 720 },
+    { w: 854, h: 480 },
+    { w: 640, h: 360 },
+    { w: 426, h: 240 },
+    { w: 320, h: 180 },
+  ];
 
   let outW = Math.min(maxRes.w, meta.width || maxRes.w);
   let outH = Math.min(maxRes.h, meta.height || maxRes.h);
