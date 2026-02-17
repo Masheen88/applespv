@@ -299,6 +299,18 @@ function guessExtensionForMime(mime) {
   return "mp4";
 }
 
+function isMp4Supported() {
+  return (
+    safeIsTypeSupported("video/mp4") ||
+    safeIsTypeSupported("video/mp4;codecs=avc1.42E01E,mp4a.40.2") ||
+    safeIsTypeSupported("video/mp4;codecs=avc1.4D401E,mp4a.40.2")
+  );
+}
+
+function isMp4Mime(mime) {
+  return (mime || "").toLowerCase().includes("video/mp4");
+}
+
 /********************************************************************
  * UI updates
  ********************************************************************/
@@ -1251,26 +1263,106 @@ async function compressIteratively(inputBlob) {
     `${sourceLabel || "Source"} size: ${fmtMB(inputBlob.size)} | duration ~${durationSec}s | meta ${meta.width}x${meta.height}`,
   );
 
-  if (inputBlob.size <= targetBytes) {
+  // if (inputBlob.size <= targetBytes) {
+  //   logProgress(`Already under limit (≤ ${fmtMB(targetBytes)}).`);
+  //   return inputBlob;
+  // }
+
+  // const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
+
+  // const [minResStr, minKbpsStr] = (
+  //   UI.minQualitySelect?.value || "640x360|250"
+  // ).split("|");
+  // const minRes = parseWH(minResStr);
+  // const minVideoBps = Number(minKbpsStr) * 1000;
+
+  // const tiers = [
+  //   { w: 1280, h: 720 },
+  //   { w: 854, h: 480 },
+  //   { w: 640, h: 360 },
+  //   { w: 426, h: 240 },
+  //   { w: 320, h: 180 },
+  // ];
+
+  const mp4Ok = isMp4Supported();
+  const inputIsMp4 = isMp4Mime(inputBlob.type);
+
+  // Force MP4 container if the browser can encode MP4 and the input isn't already MP4.
+  // This is the MOV -> MP4 case on iPhone.
+  const forceMp4 = mp4Ok && !inputIsMp4;
+
+  if (inputBlob.size <= targetBytes && !forceMp4) {
     logProgress(`Already under limit (≤ ${fmtMB(targetBytes)}).`);
     return inputBlob;
   }
 
-  const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
+  if (inputBlob.size <= targetBytes && forceMp4) {
+    logProgress(
+      `Under limit, but input is ${inputBlob.type || "video/*"} → forcing MP4 output…`,
+    );
 
-  const [minResStr, minKbpsStr] = (
-    UI.minQualitySelect?.value || "640x360|250"
-  ).split("|");
-  const minRes = parseWH(minResStr);
-  const minVideoBps = Number(minKbpsStr) * 1000;
+    // Pick a target slightly under current size to avoid accidentally growing.
+    const remuxTargetBytes = Math.min(
+      targetBytes,
+      Math.max(1_000_000, Math.floor(inputBlob.size * 0.98)),
+    );
 
-  const tiers = [
-    { w: 1280, h: 720 },
-    { w: 854, h: 480 },
-    { w: 640, h: 360 },
-    { w: 426, h: 240 },
-    { w: 320, h: 180 },
-  ];
+    const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
+    const fps = Number(UI.fpsSelect?.value) || 30;
+
+    // Use source dimensions but clamp to maxRes tier
+    const tiers = [
+      { w: 1280, h: 720 },
+      { w: 854, h: 480 },
+      { w: 640, h: 360 },
+      { w: 426, h: 240 },
+      { w: 320, h: 180 },
+    ];
+
+    let outW = Math.min(maxRes.w, meta.width || maxRes.w);
+    let outH = Math.min(maxRes.h, meta.height || maxRes.h);
+    const startTier =
+      tiers.find((t) => t.w <= outW && t.h <= outH) || tiers[tiers.length - 1];
+    outW = startTier.w;
+    outH = startTier.h;
+
+    // Compute bitrates to roughly match current size (but slightly under)
+    let { videoBps, audioBps } = computeBitratesForTarget(
+      durationSec,
+      remuxTargetBytes,
+    );
+    videoBps = Math.min(videoBps, 2_000_000);
+
+    // This uses your existing MP4-first MediaRecorder settings
+    const outBlob = await transcodeViaCanvas(
+      inputBlob,
+      outW,
+      outH,
+      fps,
+      videoBps,
+      audioBps,
+      1,
+    );
+
+    logProgress(
+      `MP4 attempt output: ${fmtMB(outBlob.size)} | mime: ${outBlob.type || "unknown"}`,
+    );
+
+    // If it stayed under the real target, we’re done.
+    if (outBlob.size <= targetBytes) {
+      logProgress(`✅ MP4 output produced under limit.`);
+      setText(UI.progressText, "Done");
+      if (UI.convBarFill) UI.convBarFill.style.width = "100%";
+      setText(UI.convPctLabel, "100%");
+      setText(UI.convEtaLabel, "0s");
+      return outBlob;
+    }
+
+    // If MP4 came out bigger than targetBytes, fall through to the normal iterative compressor,
+    // but now compress the MP4 we generated (so the final stays MP4).
+    logProgress(`MP4 output was too large → compressing MP4 further…`);
+    inputBlob = outBlob;
+  }
 
   let outW = Math.min(maxRes.w, meta.width || maxRes.w);
   let outH = Math.min(maxRes.h, meta.height || maxRes.h);
