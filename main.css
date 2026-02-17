@@ -451,14 +451,6 @@ input[type="range"] {
 /* Combo fullscreen stage         */
 /* ============================= */
 
-/*
-  ✅ UPDATED to match your current HTML:
-  - .comboFullscreenStage (not .comboStage)
-  - .comboHud + #comboHudText (not .comboTopHud / .comboHudPill)
-  - .comboDock / .comboDockInner rows
-  - body.comboMode hooks remain (map.js can toggle this class)
-*/
-
 /* Fullscreen stage wrapper */
 .comboFullscreenStage {
   position: fixed;
@@ -524,38 +516,65 @@ input[type="range"] {
   bottom: 0;
   z-index: 130;
 
-  padding: 12px 12px calc(env(safe-area-inset-bottom) + 14px) 12px;
+  padding: 8px 10px calc(env(safe-area-inset-bottom) + 10px) 10px;
 
   background: linear-gradient(to top, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0));
   pointer-events: none;
 }
 
+/* Reduce spacing inside the dock */
 .comboDockInner {
-  max-width: 980px;
-  margin: 0 auto;
-  display: grid;
-  gap: 10px;
-  pointer-events: auto;
+  gap: 6px;
 }
 
+/* Tighten both rows */
 .comboDockTopRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .comboDockActions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .comboDockBottomRow {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  gap: 6px;
+  grid-template-columns: 1.2fr 1fr 1fr 0.9fr; /* Start / Drop / Center / Back */
+}
+
+@media (max-width: 420px) {
+  .comboDockBottomRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #comboStartPathBtn {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Make combo buttons smaller than normal .btn */
+#comboTabPanel .comboDock .btn {
+  padding: 7px 9px; /* smaller tap area while still usable */
+  border-radius: 10px;
+  min-height: 36px; /* was 44px globally */
+  font-size: 12px;
+  gap: 6px;
+}
+
+/* Keep primary buttons from looking huge */
+#comboTabPanel .comboDock .btn.primary {
+  box-shadow: none;
+}
+
+/* Keep "Ready" label from taking space */
+.comboDockTitle .mono#comboStateNote {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+/* If you want Start Path not to be massive */
+#comboStartPathBtn {
+  justify-content: center;
 }
 
 /* On very small phones, stack controls for reach */
@@ -567,10 +586,6 @@ input[type="range"] {
   /* Prefer Enable on its own row */
   #comboEnableCameraBtn {
     flex: 1 1 100%;
-  }
-
-  .comboDockBottomRow {
-    grid-template-columns: 1fr 1fr;
   }
 
   /* Start path gets full width */
@@ -624,9 +639,10 @@ input[type="range"] {
 /* Small hint text inside dock */
 .comboDockHint {
   margin-top: 2px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  line-height: 1.2;
+  opacity: 0.7;
 }
-
 /* When Combo is active: keep header out of the way */
 /* body.comboMode header {
   display: none;
@@ -642,4 +658,44 @@ body.comboMode main {
 body.comboMode .card {
   border-radius: 0;
   box-shadow: none;
+}
+
+/*ANCHOR OVERRIDES */
+/* ===== Combo: stop buttons from stretching ===== */
+
+/* Top row: keep buttons compact (no fill) */
+.comboDockActions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+#comboTabPanel .comboDockActions .btn {
+  flex: 0 0 auto !important;
+  width: auto !important;
+}
+
+/* Bottom row: keep a compact wrap instead of big grid columns */
+.comboDockBottomRow {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+#comboTabPanel .comboDockBottomRow .btn {
+  flex: 0 0 auto !important;
+  width: auto !important;
+}
+
+/* Small phones: override the "make them huge" rules */
+@media (max-width: 420px) {
+  .comboDockActions .btn,
+  #comboEnableCameraBtn {
+    flex: 0 0 auto !important;
+    width: auto !important;
+  }
+
+  #comboStartPathBtn {
+    grid-column: auto !important;
+  }
 }
