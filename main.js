@@ -7,6 +7,10 @@
  * UPDATES:
  * - Adds per-attempt conversion progress bar + % + ETA
  * - Makes conversion silent (no "listening to the whole video")
+ *
+ * NEW (iPhone MOV -> MP4):
+ * - If browser supports MP4 encoding AND uploaded input is not MP4 (e.g. .MOV),
+ *   we FORCE a transcode to MP4 even if the file is already under 50MB.
  ********************************************************************/
 
 // GorillaDesk limit
@@ -296,7 +300,7 @@ function guessExtensionForMime(mime) {
   if (m.includes("video/mp4")) return "mp4";
   if (m.includes("quicktime")) return "mov";
   if (m.includes("video/webm")) return "webm";
-  return "mp4";
+  return "mp4"; // keep your original fallback
 }
 
 function isMp4Supported() {
@@ -549,6 +553,9 @@ function renderResult(blob, label) {
   const url = URL.createObjectURL(blob);
   lastResultUrl = url;
 
+  // IMPORTANT:
+  // If the blob mime is empty/unknown but we *know* MP4 is supported and we intended MP4,
+  // still save as mp4 by extension guessing.
   const ext = guessExtensionForMime(blob.type || preferredOutputMime || "");
   const okSize = blob.size <= MAX_BYTES - SAFETY_BYTES;
   const gdOk = isGorillaDeskCompatibleMime(blob.type || "");
@@ -1244,6 +1251,14 @@ async function transcodeViaCanvas(
   return new Blob(outChunks, { type: outType });
 }
 
+/********************************************************************
+ * compressIteratively
+ *
+ * NEW:
+ * - If under 50MB but not MP4 and MP4 encoding is supported,
+ *   do a single-pass transcode to force MP4 output.
+ * - If that MP4 result ends up too big, continue compressing the MP4 blob.
+ ********************************************************************/
 async function compressIteratively(inputBlob) {
   cancelRequested = false;
   setEnabled(UI.cancelConvertBtn, true);
@@ -1263,11 +1278,86 @@ async function compressIteratively(inputBlob) {
     `${sourceLabel || "Source"} size: ${fmtMB(inputBlob.size)} | duration ~${durationSec}s | meta ${meta.width}x${meta.height}`,
   );
 
-  // if (inputBlob.size <= targetBytes) {
-  //   logProgress(`Already under limit (≤ ${fmtMB(targetBytes)}).`);
-  //   return inputBlob;
-  // }
+  // Decide whether we should force MP4 even if already under the size limit.
+  const mp4Ok = isMp4Supported();
+  const inputIsMp4 = isMp4Mime(inputBlob.type);
+  const forceMp4 = mp4Ok && !inputIsMp4;
 
+  if (inputBlob.size <= targetBytes && !forceMp4) {
+    logProgress(`Already under limit (≤ ${fmtMB(targetBytes)}).`);
+    return inputBlob;
+  }
+
+  // Under limit but MOV/QuickTime: force a transcode to MP4.
+  // IMPORTANT: We target slightly under the input size to avoid "growing" the output.
+  if (inputBlob.size <= targetBytes && forceMp4) {
+    logProgress(
+      `Under limit but input is ${inputBlob.type || "video/*"} → forcing MP4 output…`,
+    );
+
+    const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
+    const fps = Number(UI.fpsSelect?.value) || 30;
+
+    const tiers = [
+      { w: 1280, h: 720 },
+      { w: 854, h: 480 },
+      { w: 640, h: 360 },
+      { w: 426, h: 240 },
+      { w: 320, h: 180 },
+    ];
+
+    let outW = Math.min(maxRes.w, meta.width || maxRes.w);
+    let outH = Math.min(maxRes.h, meta.height || maxRes.h);
+    const startTier =
+      tiers.find((t) => t.w <= outW && t.h <= outH) || tiers[tiers.length - 1];
+    outW = startTier.w;
+    outH = startTier.h;
+
+    // Aim just under current size.
+    const remuxTargetBytes = Math.min(
+      targetBytes,
+      Math.max(1_000_000, Math.floor(inputBlob.size * 0.98)),
+    );
+
+    let { videoBps, audioBps } = computeBitratesForTarget(
+      durationSec,
+      remuxTargetBytes,
+    );
+    videoBps = Math.min(videoBps, 2_000_000);
+
+    // Single attempt (attemptNumber=1) is enough for container change.
+    const outBlob = await transcodeViaCanvas(
+      inputBlob,
+      outW,
+      outH,
+      fps,
+      videoBps,
+      audioBps,
+      1,
+    );
+
+    logProgress(
+      `Forced MP4 output: ${fmtMB(outBlob.size)} | mime: ${outBlob.type || "unknown"}`,
+    );
+
+    // If still under the actual 50MB target, done.
+    if (outBlob.size <= targetBytes) {
+      logProgress(
+        `✅ MP4 output produced under limit (≤ ${fmtMB(targetBytes)}).`,
+      );
+      setText(UI.progressText, "Done");
+      if (UI.convBarFill) UI.convBarFill.style.width = "100%";
+      setText(UI.convPctLabel, "100%");
+      setText(UI.convEtaLabel, "0s");
+      return outBlob;
+    }
+
+    // If MP4 came out larger (rare), continue compressing starting from MP4 blob.
+    logProgress(`MP4 output exceeded target → continuing compression on MP4…`);
+    inputBlob = outBlob;
+  }
+
+  // Normal iterative compression (also used for big files, or when MP4 forced output is too big)
   const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
 
   const [minResStr, minKbpsStr] = (
