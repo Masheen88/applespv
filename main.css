@@ -1,4 +1,5 @@
 /* main.css */
+
 :root {
   --bg: #0b0f14;
   --card: #111826;
@@ -11,6 +12,11 @@
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   --radius: 16px;
   --pad: 14px;
+
+  /* Map tab uses these */
+  --primary: var(--accent);
+  --primaryText: #fff;
+
   color-scheme: dark;
 }
 
@@ -24,6 +30,10 @@
   --ok: #16a34a;
   --border: rgba(0, 0, 0, 0.1);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+
+  --primary: var(--accent);
+  --primaryText: #fff;
+
   color-scheme: light;
 }
 
@@ -50,6 +60,7 @@ body {
   overflow-x: hidden;
 }
 
+/* Header stays usable on normal tabs */
 header {
   position: sticky;
   top: 0;
@@ -120,6 +131,9 @@ main {
   user-select: none;
   min-height: 44px;
   white-space: nowrap;
+
+  /* ✅ important: anchors styled as buttons too */
+  text-decoration: none;
 }
 
 .btn.primary {
@@ -270,7 +284,7 @@ video {
   margin-top: 8px;
 }
 
-/* Make key controls fit on iPhone without wrapping into oblivion */
+/* Make key controls fit on iPhone */
 @media (max-width: 420px) {
   .actions.tight .btn {
     flex: 1 1 calc(50% - 10px);
@@ -307,7 +321,7 @@ video {
   padding-top: 8px;
 }
 
-/* Settings drawer (fixed bounds + always visible close) */
+/* Settings drawer */
 .sheetOverlay {
   position: fixed;
   inset: 0;
@@ -332,9 +346,7 @@ video {
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
 
-  /* critical: iOS safe bounds and close button visibility */
   height: min(88dvh, calc(100dvh - env(safe-area-inset-top) - 10px));
-  max-height: none;
   overflow: hidden;
   padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
 }
@@ -346,7 +358,6 @@ video {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-
   position: sticky;
   top: 0;
   background: var(--card);
@@ -363,7 +374,6 @@ video {
   display: grid;
   gap: 12px;
 
-  /* scrolling area stays within sheet; close stays pinned */
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   height: calc(100% - 58px);
@@ -427,60 +437,6 @@ input[type="range"] {
   line-height: 1.35;
 }
 
-/* Video modal */
-.modalOverlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  z-index: 80;
-}
-
-.modal {
-  position: fixed;
-  left: 12px;
-  right: 12px;
-  top: calc(env(safe-area-inset-top) + 12px);
-  bottom: calc(env(safe-area-inset-bottom) + 12px);
-  z-index: 90;
-
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.modalHeader {
-  padding: 12px var(--pad);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--card);
-}
-
-.modalHeader h3 {
-  margin: 0;
-  font-size: 14px;
-}
-
-.modalBody {
-  padding: var(--pad);
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-#modalVideo {
-  width: 100%;
-  max-height: 65vh;
-  border-radius: 14px;
-  background: #000;
-}
-
 /* Hidden helpers */
 .hiddenTools {
   position: absolute;
@@ -489,4 +445,201 @@ input[type="range"] {
   width: 1px;
   height: 1px;
   overflow: hidden;
+}
+
+/* ============================= */
+/* Combo fullscreen stage         */
+/* ============================= */
+
+/*
+  ✅ UPDATED to match your current HTML:
+  - .comboFullscreenStage (not .comboStage)
+  - .comboHud + #comboHudText (not .comboTopHud / .comboHudPill)
+  - .comboDock / .comboDockInner rows
+  - body.comboMode hooks remain (map.js can toggle this class)
+*/
+
+/* Fullscreen stage wrapper */
+.comboFullscreenStage {
+  position: fixed;
+  inset: 0;
+  z-index: 100; /* Above the normal app chrome */
+  background: #000;
+
+  /* Use dvh to react to browser bar show/hide */
+  height: 100dvh;
+  width: 100vw;
+
+  /* Prevent accidental scroll bounce on iOS */
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+/* Fullscreen video */
+#comboPreview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+
+  /* In combo fullscreen we want edge-to-edge */
+  border-radius: 0;
+  max-height: none;
+}
+
+/* Top HUD row */
+.comboHud {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: calc(env(safe-area-inset-top) + 10px);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+
+  pointer-events: none;
+}
+
+/* Make the HUD pill readable on video */
+#comboHudText {
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  backdrop-filter: blur(10px);
+  border-color: color-mix(in srgb, var(--border) 85%, transparent);
+  color: var(--text);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Bottom control dock overlay */
+.comboDock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 130;
+
+  padding: 12px 12px calc(env(safe-area-inset-bottom) + 14px) 12px;
+
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0));
+  pointer-events: none;
+}
+
+.comboDockInner {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.comboDockTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.comboDockActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.comboDockBottomRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+/* On very small phones, stack controls for reach */
+@media (max-width: 420px) {
+  .comboDockActions .btn {
+    flex: 1 1 calc(50% - 10px);
+  }
+
+  /* Prefer Enable on its own row */
+  #comboEnableCameraBtn {
+    flex: 1 1 100%;
+  }
+
+  .comboDockBottomRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* Start path gets full width */
+  #comboStartPathBtn {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Minimap overlay (still defined here for combo mode) */
+.miniMapWrap {
+  position: absolute;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom) + 150px);
+  width: 180px;
+  height: 180px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  z-index: 125;
+  background: #000;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 520px) {
+  .miniMapWrap {
+    width: 160px;
+    height: 160px;
+    bottom: calc(env(safe-area-inset-bottom) + 160px);
+  }
+}
+
+.miniMap {
+  position: absolute;
+  inset: 0;
+}
+
+.miniReadout {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  backdrop-filter: blur(10px);
+  font-size: 12px;
+  color: var(--text);
+}
+
+/* Small hint text inside dock */
+.comboDockHint {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* When Combo is active: keep header out of the way */
+/* body.comboMode header {
+  display: none;
+} */
+
+body.comboMode main {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Optional: if comboMode is on, remove card rounding/shadow artifacts */
+body.comboMode .card {
+  border-radius: 0;
+  box-shadow: none;
 }

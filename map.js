@@ -1,8 +1,7 @@
 // map.js
-
 (() => {
   // -----------------------------
-  // Tab switching (Video / Map)
+  // Tab switching (Video / Map / Combo)
   // -----------------------------
   const appTabVideo = document.getElementById("appTabVideo");
   const appTabMap = document.getElementById("appTabMap");
@@ -10,23 +9,83 @@
   const videoTabPanel = document.getElementById("videoTabPanel");
   const mapTabPanel = document.getElementById("mapTabPanel");
   const comboTabPanel = document.getElementById("comboTabPanel");
+  const comboExitBtn = document.getElementById("comboExitBtn");
+
+  // function setAppTab(tab) {
+  //   const isVideo = tab === "video";
+  //   const isMap = tab === "map";
+  //   const isCombo = tab === "combo";
+
+  //   // Toggle active pill styling
+  //   if (appTabVideo) {
+  //     appTabVideo.classList.toggle("active", isVideo);
+  //     appTabVideo.setAttribute("aria-selected", isVideo ? "true" : "false");
+  //   }
+  //   if (appTabMap) {
+  //     appTabMap.classList.toggle("active", isMap);
+  //     appTabMap.setAttribute("aria-selected", isMap ? "true" : "false");
+  //   }
+  //   if (appTabCombo) {
+  //     appTabCombo.classList.toggle("active", isCombo);
+  //     appTabCombo.setAttribute("aria-selected", isCombo ? "true" : "false");
+  //   }
+
+  //   // Panels
+  //   if (videoTabPanel) videoTabPanel.style.display = isVideo ? "" : "none";
+  //   if (mapTabPanel) mapTabPanel.style.display = isMap ? "" : "none";
+  //   if (comboTabPanel) comboTabPanel.style.display = isCombo ? "" : "none";
+
+  //   // Fullscreen combo mode layout (CSS-driven)
+  //   document.body.classList.toggle("combo-mode", isCombo);
+
+  //   // Lazy init map when Map or Combo opens (tracking relies on it)
+  //   if (isMap || isCombo) initMapOnce();
+
+  //   // Minimap lives inside Combo tab
+  //   if (isCombo) initMiniMapOnce();
+
+  //   // Leaflet needs a size invalidate when a map becomes visible
+  //   if (isMap && map) {
+  //     setTimeout(() => {
+  //       try {
+  //         map.invalidateSize();
+  //       } catch (_) {}
+  //     }, 120);
+  //   }
+  //   if (isCombo && miniMap) {
+  //     setTimeout(() => {
+  //       try {
+  //         miniMap.invalidateSize();
+  //       } catch (_) {}
+  //     }, 120);
+  //   }
+  // }
 
   function setAppTab(tab) {
     const isVideo = tab === "video";
     const isMap = tab === "map";
     const isCombo = tab === "combo";
 
-    if (appTabVideo) {
-      appTabVideo.classList.toggle("active", isVideo);
-      appTabVideo.setAttribute("aria-selected", isVideo ? "true" : "false");
-    }
-    if (appTabMap) {
-      appTabMap.classList.toggle("active", isMap);
-      appTabMap.setAttribute("aria-selected", isMap ? "true" : "false");
-    }
-    if (appTabCombo) {
-      appTabCombo.classList.toggle("active", isCombo);
-      appTabCombo.setAttribute("aria-selected", isCombo ? "true" : "false");
+    // ✅ IMPORTANT: only hide header in combo mode
+    document.body.classList.toggle("comboMode", isCombo);
+
+    if (appTabVideo)
+      appTabVideo.addEventListener("click", () => {
+        document.body.classList.remove("comboMode");
+        setAppTab("video");
+      });
+
+    if (appTabMap)
+      appTabMap.addEventListener("click", () => {
+        document.body.classList.remove("comboMode");
+        setAppTab("map");
+      });
+
+    if (appTabCombo)
+      appTabCombo.addEventListener("click", () => setAppTab("combo"));
+
+    if (comboExitBtn) {
+      comboExitBtn.addEventListener("click", () => setAppTab("video"));
     }
 
     if (videoTabPanel) videoTabPanel.style.display = isVideo ? "" : "none";
@@ -56,10 +115,11 @@
     }
   }
 
-
-  if (appTabVideo) appTabVideo.addEventListener("click", () => setAppTab("video"));
+  if (appTabVideo)
+    appTabVideo.addEventListener("click", () => setAppTab("video"));
   if (appTabMap) appTabMap.addEventListener("click", () => setAppTab("map"));
-  if (appTabCombo) appTabCombo.addEventListener("click", () => setAppTab("combo"));
+  if (appTabCombo)
+    appTabCombo.addEventListener("click", () => setAppTab("combo"));
 
   // -----------------------------
   // Map + Tracking
@@ -76,7 +136,6 @@
   let miniYouMarker = null;
   const miniDropped = []; // markers
   let miniPathLine = null;
-
 
   let watchId = null;
   let tracking = false;
@@ -140,16 +199,13 @@
     if (mapInited) return;
     mapInited = true;
 
-    // Create map (Leaflet is north-up by default; no rotation)
     map = L.map("map", {
-      zoomControl: false, // we provide our own
+      zoomControl: false,
       attributionControl: true,
       inertia: true,
       worldCopyJump: true,
     });
 
-    // Satellite tiles (Esri World Imagery)
-    // NOTE: Exporting to canvas requires CORS. We set crossOrigin.
     tile = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
@@ -159,25 +215,19 @@
       },
     ).addTo(map);
 
-    // Start view (fallback)
-    map.setView([36.1627, -86.7816], 18); // Nashville-ish default
+    map.setView([36.1627, -86.7816], 18);
 
-    // Path polyline
     pathLine = L.polyline(pathLatLngs, {
       weight: 4,
       opacity: 0.9,
     }).addTo(map);
 
-    // Wire UI buttons
     wireMapControls();
-
-    // Try one-time location for initial center
     requestOneShotLocation();
 
     updateMapUI();
     syncMiniFromState();
   }
-
 
   function initMiniMapOnce() {
     if (miniInited) return;
@@ -198,7 +248,6 @@
       inertia: false,
     });
 
-    // Same satellite tiles
     miniTile = L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
@@ -208,7 +257,6 @@
       },
     ).addTo(miniMap);
 
-    // Default view (matches main map fallback)
     miniMap.setView([36.1627, -86.7816], 18);
 
     miniPathLine = L.polyline([], {
@@ -216,14 +264,12 @@
       opacity: 0.9,
     }).addTo(miniMap);
 
-    // If we already have state, mirror it now
     syncMiniFromState();
   }
 
   function syncMiniFromState() {
     if (!miniMap) return;
 
-    // Sync you marker
     if (youMarker) {
       const ll = youMarker.getLatLng();
       if (!miniYouMarker) {
@@ -234,12 +280,10 @@
       miniMap.setView(ll, Math.max(miniMap.getZoom(), 18), { animate: false });
     }
 
-    // Sync path
     if (miniPathLine) {
       miniPathLine.setLatLngs(pathLatLngs);
     }
 
-    // Sync dropped points (if any already exist)
     if (miniDropped.length === 0 && droppedPoints.length > 0) {
       for (const p of droppedPoints) {
         const m = L.marker([p.lat, p.lng], { icon: redDotIcon }).addTo(miniMap);
@@ -261,7 +305,6 @@
 
     const panBy = (dx, dy) => {
       if (!map) return;
-      // Smooth-ish pan; small steps for mobile
       map.panBy([dx, dy], { animate: true, duration: 0.25 });
     };
 
@@ -295,15 +338,9 @@
         updateMapUI();
       });
 
-    if (clearMapBtn)
-      clearMapBtn.addEventListener("click", () => {
-        clearAll();
-      });
-
+    if (clearMapBtn) clearMapBtn.addEventListener("click", () => clearAll());
     if (exportMapBtn)
-      exportMapBtn.addEventListener("click", async () => {
-        await exportMapImage();
-      });
+      exportMapBtn.addEventListener("click", async () => exportMapImage());
   }
 
   function requestOneShotLocation() {
@@ -316,8 +353,6 @@
       (pos) => {
         const { latitude, longitude } = pos.coords;
         ensureYouMarker(latitude, longitude);
-
-        // Center nicely once
         map.setView([latitude, longitude], 19, { animate: true });
         updateMapUI();
       },
@@ -351,7 +386,6 @@
       youMarker.setLatLng([lat, lng]);
     }
 
-    // Mirror to minimap if present
     if (miniMap) {
       const ll = L.latLng(lat, lng);
       if (!miniYouMarker) {
@@ -371,7 +405,6 @@
         return;
       }
 
-      // If already tracking, no-op
       if (tracking) {
         resolve(true);
         return;
@@ -380,7 +413,6 @@
       tracking = true;
       updateMapUI();
 
-      // Start watching
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
           showBanner(false);
@@ -389,13 +421,11 @@
 
           ensureYouMarker(latitude, longitude);
 
-          // Add to path
           const ll = L.latLng(latitude, longitude);
           pathLatLngs.push(ll);
           pathLine.setLatLngs(pathLatLngs);
           if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
-          // Keep map reasonably centered while tracking (but don’t “lock” it hard)
           if (map && youMarker) {
             const bounds = map.getBounds();
             if (!bounds.contains(ll)) {
@@ -445,16 +475,10 @@
       const mm = L.marker([lat, lng], { icon: redDotIcon }).addTo(miniMap);
       miniDropped.push(mm);
     }
-    droppedPoints.push({
-      lat,
-      lng,
-      marker,
-      ts: Date.now(),
-    });
+    droppedPoints.push({ lat, lng, marker, ts: Date.now() });
   }
 
   function clearAll() {
-    // Remove dropped markers
     for (const p of droppedPoints) {
       try {
         p.marker.remove();
@@ -462,18 +486,17 @@
     }
     droppedPoints.length = 0;
 
-    // Remove minimap dropped markers
     for (const m of miniDropped) {
-      try { m.remove(); } catch {}
+      try {
+        m.remove();
+      } catch {}
     }
     miniDropped.length = 0;
 
-    // Clear path
     pathLatLngs.length = 0;
     if (pathLine) pathLine.setLatLngs(pathLatLngs);
     if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
-    // Hide export preview
     if (mapExportArea) mapExportArea.style.display = "none";
     if (mapExportImg) mapExportImg.src = "";
     if (mapDownloadLink) mapDownloadLink.removeAttribute("href");
@@ -515,8 +538,6 @@
   async function exportMapImage() {
     if (!map) return;
 
-    // Temporarily hide some UI overlays if you want a cleaner export
-    // (You can comment these out if you want them included)
     const controls = document.querySelector(".mapControls");
     const actions = document.querySelector(".mapActionBar");
     const readout = document.querySelector(".mapReadout");
@@ -530,12 +551,10 @@
       if (actions) actions.style.display = "none";
       if (readout) readout.style.display = "none";
 
-      // Wait a tick so the DOM updates
       await new Promise((r) => setTimeout(r, 80));
 
       const el = map.getContainer();
 
-      // NOTE: Some tile servers block canvas export. We set useCORS and crossOrigin above.
       const canvas = await html2canvas(el, {
         useCORS: true,
         allowTaint: false,
@@ -559,7 +578,6 @@
       if (readout) readout.style.display = prevReadout;
     }
   }
-
-  // If someone lands on the map tab first (rare), still safe:
-  // setAppTab("video") is implied by markup; map inits when opened.
+  setAppTab("video");
+  // default tab is Video by markup; map initializes lazily.
 })();

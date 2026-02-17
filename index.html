@@ -10,11 +10,9 @@
     <title>50MB Video Recorder / Converter (MP4-first)</title>
 
     <link rel="stylesheet" href="main.css" />
-
-    <!-- NEW: Map tab styles -->
     <link rel="stylesheet" href="map.css" />
 
-    <!-- NEW: Leaflet CSS -->
+    <!-- Leaflet CSS -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -23,7 +21,7 @@
     />
   </head>
   <body>
-    <header>
+    <header id="appHeader">
       <div class="row">
         <h1>50MB Video Recorder / Converter</h1>
         <div class="row" style="gap: 8px">
@@ -34,7 +32,7 @@
         </div>
       </div>
 
-      <!-- NEW: Top-level tabs (Video / Map) -->
+      <!-- Top-level tabs (Video / Map / Combo) -->
       <div class="topTabs" role="tablist" aria-label="app tabs">
         <button
           id="appTabVideo"
@@ -66,7 +64,7 @@
       </div>
     </header>
 
-    <main>
+    <main id="appMain">
       <!-- ========================= -->
       <!-- VIDEO TAB (existing UI)   -->
       <!-- ========================= -->
@@ -174,7 +172,6 @@
               </div>
 
               <div class="actions tight">
-                <!-- Start/Stop is ONE button -->
                 <button
                   id="recordToggleBtn"
                   class="btn primary"
@@ -183,12 +180,9 @@
                 >
                   ⏺️ Record
                 </button>
-
-                <!-- Pause next to it -->
                 <button id="pauseBtn" class="btn" type="button" disabled>
                   ⏸️ Pause
                 </button>
-
                 <button id="resetBtn" class="btn" type="button" disabled>
                   🧹 Reset
                 </button>
@@ -276,10 +270,10 @@
       </section>
 
       <!-- ========================= -->
-      <!-- ========================= -->
-      <!-- COMBO TAB (NEW)           -->
+      <!-- COMBO TAB (FULLSCREEN)    -->
       <!-- ========================= -->
       <section id="comboTabPanel" class="card" style="display: none">
+        <!-- Kept for structure; hidden in combo-mode via CSS -->
         <h2>
           <span>Video + Plot</span>
           <span class="pill"
@@ -288,54 +282,59 @@
         </h2>
 
         <div class="content comboContent">
-          <div class="comboFrame">
-            <div class="comboVideoWrap">
-              <video id="comboPreview" playsinline muted autoplay></video>
+          <div class="comboFullscreenStage" aria-label="combo fullscreen stage">
+            <video id="comboPreview" playsinline muted autoplay></video>
 
-              <div class="comboHud">
-                <span class="pill mono" id="comboHudText"
-                  >Camera: — • Rec: — • Points: 0 • Path: 0</span
-                >
-              </div>
+            <!-- Top HUD -->
+            <div class="comboHud" aria-live="polite">
+              <span class="pill mono" id="comboHudText">
+                Camera: — • Rec: — • Points: 0 • Path: 0
+              </span>
+            </div>
 
-              <!-- GTA-style minimap overlay -->
-              <div class="miniMapWrap" aria-label="minimap">
-                <div id="minimap" class="miniMap"></div>
-                <div class="miniReadout mono" id="miniReadout">
-                  GPS: — • Points: 0 • Path: 0
-                </div>
+            <!-- GTA-style minimap overlay -->
+            <div class="miniMapWrap" aria-label="minimap">
+              <div id="minimap" class="miniMap"></div>
+              <div class="miniReadout mono" id="miniReadout">
+                GPS: — • Points: 0 • Path: 0
               </div>
             </div>
 
-            <div class="comboActions">
-              <div class="groupCard" style="margin-top: 0">
-                <div class="groupTop">
-                  <div class="groupTitle">Controls</div>
-                  <div class="groupSub mono" id="comboStateNote">Ready</div>
+            <!-- Bottom control dock (overlay) -->
+            <div class="comboDock" aria-label="combo controls">
+              <div class="comboDockInner">
+                <div class="comboDockTopRow">
+                  <div class="comboDockTitle">
+                    <div class="mono" id="comboStateNote">Ready</div>
+                  </div>
+                  <div class="comboDockActions">
+                    <button
+                      id="comboEnableCameraBtn"
+                      class="btn primary"
+                      type="button"
+                    >
+                      📷 Enable
+                    </button>
+                    <button
+                      id="comboRecordToggleBtn"
+                      class="btn primary"
+                      type="button"
+                      disabled
+                    >
+                      ⏺️ Record
+                    </button>
+                    <button
+                      id="comboPauseBtn"
+                      class="btn"
+                      type="button"
+                      disabled
+                    >
+                      ⏸️ Pause
+                    </button>
+                  </div>
                 </div>
 
-                <div class="actions tight">
-                  <button
-                    id="comboEnableCameraBtn"
-                    class="btn primary"
-                    type="button"
-                  >
-                    📷 Enable
-                  </button>
-                  <button
-                    id="comboRecordToggleBtn"
-                    class="btn primary"
-                    type="button"
-                    disabled
-                  >
-                    ⏺️ Record
-                  </button>
-                  <button id="comboPauseBtn" class="btn" type="button" disabled>
-                    ⏸️ Pause
-                  </button>
-                </div>
-
-                <div class="actions tight">
+                <div class="comboDockBottomRow">
                   <button
                     id="comboStartPathBtn"
                     class="btn primary"
@@ -359,11 +358,16 @@
                   >
                     ◎ Center
                   </button>
+                  <button id="comboExitBtn" class="btn" type="button">
+                    ⬅️ Back
+                  </button>
                 </div>
 
-                <div class="note">
-                  Tip: You can record video and track your walking path at the
-                  same time. The minimap stays north-up.
+                <div class="comboDockHint note">
+                  Tip: Record video and track your walking path at the same
+                  time. The minimap stays north-up.
+
+                  <!--TODO back to main tab -->
                 </div>
               </div>
             </div>
@@ -371,7 +375,8 @@
         </div>
       </section>
 
-      <!-- MAP TAB (NEW)             -->
+      <!-- ========================= -->
+      <!-- MAP TAB                  -->
       <!-- ========================= -->
       <section id="mapTabPanel" class="card" style="display: none">
         <h2>
@@ -505,7 +510,6 @@
         <button id="closeSheetBtn" class="btn" type="button">✖️ Close</button>
       </div>
       <div class="sheetBody">
-        <!-- (unchanged settings content) -->
         <div class="twoCol">
           <div>
             <label for="cameraSelect">Camera</label>
@@ -606,7 +610,7 @@
 
     <!-- Preview Modal -->
     <div id="modalOverlay" class="modalOverlay" hidden></div>
-    <!-- <div
+    <div
       id="videoModal"
       class="modal"
       hidden
@@ -622,7 +626,7 @@
         <video id="modalVideo" controls playsinline></video>
         <div class="note" id="modalMetaNote"></div>
       </div>
-    </div> -->
+    </div>
 
     <!-- Leaflet JS -->
     <script
@@ -631,15 +635,13 @@
       crossorigin=""
     ></script>
 
-    <!-- Export helper (canvas capture) -->
+    <!-- Export helper -->
     <script
       src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"
       crossorigin="anonymous"
     ></script>
 
     <script src="./main.js"></script>
-
-    <!-- NEW: Map tab logic -->
     <script src="./map.js"></script>
   </body>
 </html>

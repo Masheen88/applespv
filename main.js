@@ -83,7 +83,6 @@ const closeModalBtn = $("closeModalBtn");
 const modalVideo = $("modalVideo");
 const modalMetaNote = $("modalMetaNote");
 
-
 // Combo tab (Video + Plot) refs (optional)
 const comboPreview = $("comboPreview");
 const comboHudText = $("comboHudText");
@@ -104,10 +103,14 @@ const mapCenterBtn = document.getElementById("mapCenterBtn");
 
 function wireComboButtons() {
   if (comboEnableCameraBtn && enableCameraBtn) {
-    comboEnableCameraBtn.addEventListener("click", () => enableCameraBtn.click());
+    comboEnableCameraBtn.addEventListener("click", () =>
+      enableCameraBtn.click(),
+    );
   }
   if (comboRecordToggleBtn && recordToggleBtn) {
-    comboRecordToggleBtn.addEventListener("click", () => recordToggleBtn.click());
+    comboRecordToggleBtn.addEventListener("click", () =>
+      recordToggleBtn.click(),
+    );
   }
   if (comboPauseBtn && pauseBtn) {
     comboPauseBtn.addEventListener("click", () => pauseBtn.click());
@@ -129,7 +132,9 @@ function syncComboUI() {
   // Mirror the existing video recording UI state
   if (comboRecordToggleBtn && recordToggleBtn) {
     comboRecordToggleBtn.disabled = !!recordToggleBtn.disabled;
-    comboRecordToggleBtn.textContent = recordToggleBtn.textContent || "⏺️ Record";
+    comboRecordToggleBtn.textContent =
+      recordToggleBtn.textContent || "⏺️ Record";
+    comboRecordToggleBtn.className = recordToggleBtn.className; // mirror styling (primary/danger)
   }
   if (comboPauseBtn && pauseBtn) {
     comboPauseBtn.disabled = !!pauseBtn.disabled;
@@ -141,8 +146,10 @@ function syncComboUI() {
 
   // Mirror map UI state (so buttons enable/disable correctly in combo tab)
   if (comboStartPathBtn && startTrackBtn) {
-    comboStartPathBtn.textContent = startTrackBtn.textContent || "▶️ Start path";
+    comboStartPathBtn.textContent =
+      startTrackBtn.textContent || "▶️ Start path";
     comboStartPathBtn.disabled = !!startTrackBtn.disabled;
+    comboStartPathBtn.className = startTrackBtn.className;
   }
   if (comboDropPointBtn && dropPointBtn) {
     comboDropPointBtn.disabled = !!dropPointBtn.disabled;
@@ -267,7 +274,6 @@ function fmtTime(sec) {
   return `${m}m ${s}s`;
 }
 function isSecureEnoughForCamera() {
-  // file:// on iPhone is not secure; https is.
   return window.isSecureContext === true;
 }
 function safeIsTypeSupported(mime) {
@@ -393,7 +399,6 @@ function updateRecUI() {
 }
 
 function clearResult() {
-  // clear last preview url safely
   if (lastResultUrl) {
     try {
       URL.revokeObjectURL(lastResultUrl);
@@ -407,23 +412,24 @@ function clearResult() {
 }
 
 function openPreviewModal(blob, label) {
-  if (!blob) return;
+  if (!blob || !modalOverlay || !videoModal || !modalVideo) return;
 
-  // remove hidden + inert
   modalOverlay.hidden = false;
   videoModal.hidden = false;
   videoModal.removeAttribute("inert");
 
-  // set video source
   const url = URL.createObjectURL(blob);
   modalVideo.src = url;
   videoModal.dataset.tempUrl = url;
 
   const ext = guessExtensionForMime(blob.type || preferredOutputMime || "");
-  modalMetaNote.textContent = `${label || "Video"} • ${fmtMB(blob.size)} • ${blob.type || "video/*"} • .${ext}`;
+  if (modalMetaNote) {
+    modalMetaNote.textContent = `${label || "Video"} • ${fmtMB(blob.size)} • ${
+      blob.type || "video/*"
+    } • .${ext}`;
+  }
 
-  // focus close button for accessibility
-  closeModalBtn.focus();
+  if (closeModalBtn) closeModalBtn.focus();
 
   setTimeout(() => {
     try {
@@ -431,18 +437,18 @@ function openPreviewModal(blob, label) {
     } catch (_) {}
   }, 0);
 }
+
 function closePreviewModal() {
-  // blur anything focused inside modal FIRST
+  if (!modalOverlay || !videoModal || !modalVideo) return;
+
   if (videoModal.contains(document.activeElement)) {
     document.activeElement.blur();
   }
 
-  // stop playback
   try {
     modalVideo.pause();
   } catch (_) {}
 
-  // revoke object URL
   const tempUrl = videoModal.dataset.tempUrl || "";
   if (tempUrl) {
     try {
@@ -451,14 +457,14 @@ function closePreviewModal() {
   }
   videoModal.dataset.tempUrl = "";
 
-  // hide safely
   videoModal.setAttribute("inert", "");
   videoModal.hidden = true;
   modalOverlay.hidden = true;
 }
 
-// closeModalBtn.addEventListener("click", closePreviewModal);
-// modalOverlay.addEventListener("click", closePreviewModal);
+if (closeModalBtn) closeModalBtn.addEventListener("click", closePreviewModal);
+if (modalOverlay) modalOverlay.addEventListener("click", closePreviewModal);
+
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closePreviewModal();
@@ -470,7 +476,6 @@ document.addEventListener("keydown", (e) => {
  * Render result (Save + Preview + Share grouped)
  ********************************************************************/
 function renderResult(blob, label) {
-  // keep last result for modal preview button too
   lastResultBlob = blob;
   lastResultLabel = label || "Output";
 
@@ -482,62 +487,64 @@ function renderResult(blob, label) {
   const gdOk = isGorillaDeskCompatibleMime(blob.type || "");
 
   resultArea.innerHTML = `
-      <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
-        <span>${label || "Output"}: <span class="mono ${
-          okSize ? "ok" : "warn"
-        }">${fmtMB(blob.size)}</span></span>
-        <span class="mono">${blob.type || "video/*"}</span>
-      </div>
+    <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
+      <span>${label || "Output"}: <span class="mono ${okSize ? "ok" : "warn"}">${fmtMB(
+        blob.size,
+      )}</span></span>
+      <span class="mono">${blob.type || "video/*"}</span>
+    </div>
 
-      <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
-        <span>GorillaDesk compatible:</span>
-        <span class="mono ${gdOk ? "ok" : "warn"}">${
-          gdOk ? "YES" : "NO (WebM not accepted)"
-        }</span>
-      </div>
+    <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
+      <span>GorillaDesk compatible:</span>
+      <span class="mono ${gdOk ? "ok" : "warn"}">${
+        gdOk ? "YES" : "NO (WebM not accepted)"
+      }</span>
+    </div>
 
-      <div class="actions tight">
-        <a class="btn primary" href="${url}" download="gorilladesk-video.${ext}">⬇️ Save</a>
-       <!-- <button class="btn" id="previewBtn" type="button">🎬 Preview</button> -->
-        <button class="btn" id="shareBtn" type="button">📤 Share</button>
-      </div>
+    <div class="actions tight">
+      <a class="btn primary" href="${url}" download="gorilladesk-video.${ext}">⬇️ Save</a>
+      <button class="btn" id="previewBtn" type="button">🎬 Preview</button>
+      <button class="btn" id="shareBtn" type="button">📤 Share</button>
+    </div>
 
-      ${
-        gdOk
-          ? ""
-          : `<div class="note warn">
-        This output is WebM. GorillaDesk won’t accept it. Use iPhone Safari over HTTPS (often supports MP4) or use FFmpeg/server conversion.
-      </div>`
-      }
-    `;
+    ${
+      gdOk
+        ? ""
+        : `<div class="note warn">
+      This output is WebM. GorillaDesk won’t accept it. Use iPhone Safari over HTTPS (often supports MP4) or use FFmpeg/server conversion.
+    </div>`
+    }
+  `;
 
   const previewBtn = document.getElementById("previewBtn");
-  previewBtn.addEventListener("click", () => openPreviewModal(blob, label));
+  if (previewBtn)
+    previewBtn.addEventListener("click", () => openPreviewModal(blob, label));
 
   const shareBtn = document.getElementById("shareBtn");
-  shareBtn.addEventListener("click", async () => {
-    try {
-      const file = new File([blob], `gorilladesk-video.${ext}`, {
-        type: blob.type || "video/*",
-      });
-      if (
-        navigator.canShare &&
-        navigator.canShare({ files: [file] }) &&
-        navigator.share
-      ) {
-        await navigator.share({
-          files: [file],
-          title: "Video",
-          text: "Compressed video (≤ 50MB)",
+  if (shareBtn)
+    shareBtn.addEventListener("click", async () => {
+      try {
+        const file = new File([blob], `gorilladesk-video.${ext}`, {
+          type: blob.type || "video/*",
         });
-      } else {
-        alert("Share is not supported here. Use Save instead.");
+        if (
+          navigator.canShare &&
+          navigator.canShare({ files: [file] }) &&
+          navigator.share
+        ) {
+          await navigator.share({
+            files: [file],
+            title: "Video",
+            text: "Compressed video (≤ 50MB)",
+          });
+        } else {
+          alert("Share is not supported here. Use Save instead.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Share failed on this device/browser. Use Save instead.");
       }
-    } catch (err) {
-      console.error(err);
-      alert("Share failed on this device/browser. Use Save instead.");
-    }
-  });
+    });
 }
 
 /********************************************************************
@@ -547,15 +554,12 @@ function openSheet() {
   sheetOverlay.style.display = "block";
   sheet.style.transform = "translateY(0)";
   sheet.setAttribute("aria-hidden", "false");
-
-  // Prevent background scroll on iOS
   document.body.style.overflow = "hidden";
 }
 function closeSheet() {
   sheetOverlay.style.display = "none";
   sheet.style.transform = "translateY(110%)";
   sheet.setAttribute("aria-hidden", "true");
-
   document.body.style.overflow = "";
 }
 settingsBtn.addEventListener("click", openSheet);
@@ -655,10 +659,13 @@ function stopStream() {
   stream = null;
   videoTrack = null;
 
-
   // Clear previews
-  try { preview.srcObject = null; } catch (_) {}
-  try { if (comboPreview) comboPreview.srcObject = null; } catch (_) {}
+  try {
+    preview.srcObject = null;
+  } catch (_) {}
+  try {
+    if (comboPreview) comboPreview.srcObject = null;
+  } catch (_) {}
 
   cameraStateLabel.textContent = "Not enabled";
 }
@@ -725,6 +732,7 @@ async function startPreview() {
   };
 
   stream = await navigator.mediaDevices.getUserMedia(constraints);
+
   preview.srcObject = stream;
   if (comboPreview) comboPreview.srcObject = stream;
 
@@ -834,13 +842,6 @@ function bestRecorderMimeForCurrentDevice() {
   return mime || "";
 }
 
-function isRecordingActive() {
-  return mediaRecorder && mediaRecorder.state === "recording";
-}
-function isRecordingPaused() {
-  return mediaRecorder && mediaRecorder.state === "paused";
-}
-
 async function startRecording() {
   if (!stream) {
     alert("Tap Enable Camera first.");
@@ -896,7 +897,6 @@ async function startRecording() {
     sourceLabel = "Recorded";
     updateConvertButtonState();
 
-    // show raw as result (lets user preview/save/share immediately if they want)
     renderResult(blob, "Raw (recorded)");
   };
 
@@ -943,7 +943,6 @@ function toggleRecord() {
     startRecording();
     return;
   }
-  // if recording or paused => stop
   stopRecording();
 }
 
@@ -985,7 +984,6 @@ fileInput.addEventListener("change", async () => {
   updateConvertButtonState();
   clearResult();
 
-  // for uploads, show it as “raw” result + allow modal preview too
   renderResult(f, "Raw (uploaded)");
 });
 
@@ -1370,6 +1368,7 @@ enableCameraBtn.addEventListener("click", async () => {
 
     lsSet(LS_KEYS.AUTO_ENABLE_CAMERA, true);
 
+    // Start preview first (permission grants labels), then populate, then restart with selected
     await startPreview();
     await populateCameras();
 
@@ -1457,7 +1456,6 @@ function restoreSettingsFromStorage() {
 
   recordBitrateLabel.textContent = recordBitrate.value;
 
-  // Labels
   cameraStateLabel.textContent = lsGetBool(LS_KEYS.AUTO_ENABLE_CAMERA, false)
     ? "Tap Enable"
     : "Not enabled";
@@ -1478,7 +1476,6 @@ function init() {
   updateRecUI();
   clearResult();
 
-  // iOS gesture requirement: don’t auto-start camera
   recordToggleBtn.disabled = true;
   pauseBtn.disabled = true;
   restartPreviewBtn.disabled = true;
@@ -1487,18 +1484,15 @@ function init() {
 
 init();
 
-
 /********************************************************************
  * Combo tab wiring (Video + Plot)
  ********************************************************************/
 try {
   wireComboButtons();
-  // Keep combo controls in sync even when the real controls are in another tab.
   setInterval(() => {
     syncComboUI();
     updateComboHUD();
   }, 250);
 } catch (e) {
-  // no-op (combo tab not present)
+  // no-op
 }
-
