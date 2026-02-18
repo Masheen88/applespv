@@ -11,56 +11,6 @@
   const comboTabPanel = document.getElementById("comboTabPanel");
   const comboExitBtn = document.getElementById("comboExitBtn");
 
-  // function setAppTab(tab) {
-  //   const isVideo = tab === "video";
-  //   const isMap = tab === "map";
-  //   const isCombo = tab === "combo";
-
-  //   // Toggle active pill styling
-  //   if (appTabVideo) {
-  //     appTabVideo.classList.toggle("active", isVideo);
-  //     appTabVideo.setAttribute("aria-selected", isVideo ? "true" : "false");
-  //   }
-  //   if (appTabMap) {
-  //     appTabMap.classList.toggle("active", isMap);
-  //     appTabMap.setAttribute("aria-selected", isMap ? "true" : "false");
-  //   }
-  //   if (appTabCombo) {
-  //     appTabCombo.classList.toggle("active", isCombo);
-  //     appTabCombo.setAttribute("aria-selected", isCombo ? "true" : "false");
-  //   }
-
-  //   // Panels
-  //   if (videoTabPanel) videoTabPanel.style.display = isVideo ? "" : "none";
-  //   if (mapTabPanel) mapTabPanel.style.display = isMap ? "" : "none";
-  //   if (comboTabPanel) comboTabPanel.style.display = isCombo ? "" : "none";
-
-  //   // Fullscreen combo mode layout (CSS-driven)
-  //   document.body.classList.toggle("combo-mode", isCombo);
-
-  //   // Lazy init map when Map or Combo opens (tracking relies on it)
-  //   if (isMap || isCombo) initMapOnce();
-
-  //   // Minimap lives inside Combo tab
-  //   if (isCombo) initMiniMapOnce();
-
-  //   // Leaflet needs a size invalidate when a map becomes visible
-  //   if (isMap && map) {
-  //     setTimeout(() => {
-  //       try {
-  //         map.invalidateSize();
-  //       } catch (_) {}
-  //     }, 120);
-  //   }
-  //   if (isCombo && miniMap) {
-  //     setTimeout(() => {
-  //       try {
-  //         miniMap.invalidateSize();
-  //       } catch (_) {}
-  //     }, 120);
-  //   }
-  // }
-
   function setAppTab(tab) {
     const isVideo = tab === "video";
     const isMap = tab === "map";

@@ -36,16 +36,16 @@
       <div class="topTabs" role="tablist" aria-label="app tabs">
         <button
           id="appTabVideo"
-          class="topTab active"
+          class="btn topTab"
           type="button"
           role="tab"
-          aria-selected="true"
+          aria-selected="false"
         >
           🎥 Video Only
         </button>
         <button
           id="appTabMap"
-          class="topTab"
+          class="btn topTab"
           type="button"
           role="tab"
           aria-selected="false"
@@ -54,7 +54,7 @@
         </button>
         <button
           id="appTabCombo"
-          class="topTab"
+          class="btn topTab"
           type="button"
           role="tab"
           aria-selected="false"
@@ -70,7 +70,26 @@
       <!-- ========================= -->
       <section id="videoTabPanel" class="card">
         <h2>
-          <span>Record / Upload</span>
+          <div class="tabs" role="tablist" aria-label="mode tabs">
+            <button
+              id="tabRecord"
+              class="tab active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+            >
+              🎥 Record
+            </button>
+            <button
+              id="tabUpload"
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+            >
+              📁 Upload
+            </button>
+          </div>
           <span class="pill"
             >Limit: <span class="mono" id="limitLabel">50.0 MB</span></span
           >
@@ -114,27 +133,6 @@
             <div class="note" style="margin-top: 8px">
               Tip: iPhone Safari requires HTTPS for camera access.
             </div>
-          </div>
-
-          <div class="tabs" role="tablist" aria-label="mode tabs">
-            <button
-              id="tabRecord"
-              class="tab active"
-              type="button"
-              role="tab"
-              aria-selected="true"
-            >
-              🎥 Record
-            </button>
-            <button
-              id="tabUpload"
-              class="tab"
-              type="button"
-              role="tab"
-              aria-selected="false"
-            >
-              📁 Upload
-            </button>
           </div>
 
           <!-- Record Panel -->
@@ -392,12 +390,14 @@
             <div id="map" class="map"></div>
 
             <div class="mapControls" aria-label="map controls">
-              <button id="mapZoomInBtn" class="btn mapBtn" type="button">
-                ＋
-              </button>
-              <button id="mapZoomOutBtn" class="btn mapBtn" type="button">
-                －
-              </button>
+              <div>
+                <button id="mapZoomInBtn" class="btn mapBtn" type="button">
+                  ＋
+                </button>
+                <button id="mapZoomOutBtn" class="btn mapBtn" type="button">
+                  －
+                </button>
+              </div>
 
               <div class="mapPad">
                 <button id="mapPanUpBtn" class="btn mapBtn" type="button">

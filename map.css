@@ -78,7 +78,7 @@
   display: grid;
   gap: 6px;
   justify-items: center;
-  padding: 8px;
+  padding: 2px;
   border-radius: 16px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--card) 92%, transparent);
