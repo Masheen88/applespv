@@ -19,25 +19,6 @@
     // ✅ IMPORTANT: only hide header in combo mode
     document.body.classList.toggle("comboMode", isCombo);
 
-    if (appTabVideo)
-      appTabVideo.addEventListener("click", () => {
-        document.body.classList.remove("comboMode");
-        setAppTab("video");
-      });
-
-    if (appTabMap)
-      appTabMap.addEventListener("click", () => {
-        document.body.classList.remove("comboMode");
-        setAppTab("map");
-      });
-
-    if (appTabCombo)
-      appTabCombo.addEventListener("click", () => setAppTab("combo"));
-
-    if (comboExitBtn) {
-      comboExitBtn.addEventListener("click", () => setAppTab("video"));
-    }
-
     if (videoTabPanel) videoTabPanel.style.display = isVideo ? "" : "none";
     if (mapTabPanel) mapTabPanel.style.display = isMap ? "" : "none";
     if (comboTabPanel) comboTabPanel.style.display = isCombo ? "" : "none";
@@ -63,13 +44,26 @@
         } catch (_) {}
       }, 80);
     }
+
+    // Sync edit button state when switching tabs
+    updateMapUI();
   }
 
   if (appTabVideo)
-    appTabVideo.addEventListener("click", () => setAppTab("video"));
-  if (appTabMap) appTabMap.addEventListener("click", () => setAppTab("map"));
+    appTabVideo.addEventListener("click", () => {
+      document.body.classList.remove("comboMode");
+      setAppTab("video");
+    });
+  if (appTabMap)
+    appTabMap.addEventListener("click", () => {
+      document.body.classList.remove("comboMode");
+      setAppTab("map");
+    });
   if (appTabCombo)
     appTabCombo.addEventListener("click", () => setAppTab("combo"));
+
+  if (comboExitBtn)
+    comboExitBtn.addEventListener("click", () => setAppTab("video"));
 
   // -----------------------------
   // Map + Tracking
@@ -90,6 +84,10 @@
   let watchId = null;
   let tracking = false;
 
+  // ✅ Editing state
+  let editMode = false;
+  let editHandler = null; // Leaflet.draw edit handler
+
   // Current position marker (blue dot)
   let youMarker = null;
 
@@ -98,6 +96,9 @@
   // Blue path polyline
   let pathLine = null;
   const pathLatLngs = [];
+
+  // ✅ FeatureGroup that holds editable layers
+  let editGroup = null;
 
   // UI
   const mapBanner = document.getElementById("mapBanner");
@@ -108,6 +109,13 @@
   const dropPointBtn = document.getElementById("dropPointBtn");
   const exportMapBtn = document.getElementById("exportMapBtn");
   const clearMapBtn = document.getElementById("clearMapBtn");
+
+  // ✅ New edit buttons (Map tab)
+  const editMapBtn = document.getElementById("editMapBtn");
+  const doneEditMapBtn = document.getElementById("doneEditMapBtn");
+
+  // ✅ Combo edit button
+  const comboEditBtn = document.getElementById("comboEditBtn");
 
   const mapExportArea = document.getElementById("mapExportArea");
   const mapExportImg = document.getElementById("mapExportImg");
@@ -121,6 +129,11 @@
   const panLeftBtn = document.getElementById("mapPanLeftBtn");
   const panRightBtn = document.getElementById("mapPanRightBtn");
   const centerBtn = document.getElementById("mapCenterBtn");
+
+  // Combo controls (if present)
+  const comboStartPathBtn = document.getElementById("comboStartPathBtn");
+  const comboDropPointBtn = document.getElementById("comboDropPointBtn");
+  const comboCenterBtn = document.getElementById("comboCenterBtn");
 
   // Icons (simple circles)
   const redDotIcon = L.divIcon({
@@ -167,10 +180,17 @@
 
     map.setView([36.1627, -86.7816], 18);
 
+    // ✅ Create editable group and add to map
+    editGroup = new L.FeatureGroup();
+    editGroup.addTo(map);
+
+    // Create path line and include in editable group
     pathLine = L.polyline(pathLatLngs, {
       weight: 4,
       opacity: 0.9,
-    }).addTo(map);
+    });
+    pathLine.addTo(map);
+    editGroup.addLayer(pathLine);
 
     wireMapControls();
     requestOneShotLocation();
@@ -234,11 +254,18 @@
       miniPathLine.setLatLngs(pathLatLngs);
     }
 
-    if (miniDropped.length === 0 && droppedPoints.length > 0) {
-      for (const p of droppedPoints) {
-        const m = L.marker([p.lat, p.lng], { icon: redDotIcon }).addTo(miniMap);
-        miniDropped.push(m);
+    // ✅ Rebuild minimap dropped markers (keeps them correct after edits)
+    if (miniDropped.length > 0) {
+      for (const m of miniDropped) {
+        try {
+          m.remove();
+        } catch {}
       }
+      miniDropped.length = 0;
+    }
+    for (const p of droppedPoints) {
+      const m = L.marker([p.lat, p.lng], { icon: redDotIcon }).addTo(miniMap);
+      miniDropped.push(m);
     }
   }
 
@@ -271,6 +298,7 @@
         });
       });
 
+    // ✅ Map tab start/stop
     if (startTrackBtn)
       startTrackBtn.addEventListener("click", async () => {
         if (!tracking) {
@@ -280,6 +308,17 @@
         }
       });
 
+    // ✅ Combo start/stop
+    if (comboStartPathBtn)
+      comboStartPathBtn.addEventListener("click", async () => {
+        if (!tracking) {
+          await startTracking();
+        } else {
+          stopTracking();
+        }
+      });
+
+    // Drop point (Map tab)
     if (dropPointBtn)
       dropPointBtn.addEventListener("click", () => {
         if (!youMarker) return;
@@ -288,9 +327,39 @@
         updateMapUI();
       });
 
+    // Drop point (Combo)
+    if (comboDropPointBtn)
+      comboDropPointBtn.addEventListener("click", () => {
+        if (!youMarker) return;
+        const ll = youMarker.getLatLng();
+        dropPoint(ll.lat, ll.lng);
+        updateMapUI();
+      });
+
+    // Center (Combo)
+    if (comboCenterBtn)
+      comboCenterBtn.addEventListener("click", () => {
+        if (!map || !youMarker) return;
+        map.setView(youMarker.getLatLng(), Math.max(map.getZoom(), 18), {
+          animate: true,
+        });
+      });
+
     if (clearMapBtn) clearMapBtn.addEventListener("click", () => clearAll());
     if (exportMapBtn)
       exportMapBtn.addEventListener("click", async () => exportMapImage());
+
+    // ✅ Edit buttons (Map)
+    if (editMapBtn) editMapBtn.addEventListener("click", () => enterEditMode());
+    if (doneEditMapBtn)
+      doneEditMapBtn.addEventListener("click", () => exitEditMode());
+
+    // ✅ Edit button (Combo) toggles same mode
+    if (comboEditBtn)
+      comboEditBtn.addEventListener("click", () => {
+        if (editMode) exitEditMode();
+        else enterEditMode();
+      });
   }
 
   function requestOneShotLocation() {
@@ -360,6 +429,9 @@
         return;
       }
 
+      // ✅ You can't edit while tracking
+      if (editMode) exitEditMode(true);
+
       tracking = true;
       updateMapUI();
 
@@ -373,7 +445,7 @@
 
           const ll = L.latLng(latitude, longitude);
           pathLatLngs.push(ll);
-          pathLine.setLatLngs(pathLatLngs);
+          if (pathLine) pathLine.setLatLngs(pathLatLngs);
           if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
           if (map && youMarker) {
@@ -421,14 +493,119 @@
     if (!map) return;
 
     const marker = L.marker([lat, lng], { icon: redDotIcon }).addTo(map);
-    if (miniMap) {
-      const mm = L.marker([lat, lng], { icon: redDotIcon }).addTo(miniMap);
-      miniDropped.push(mm);
-    }
+
+    // ✅ Put markers into editable group so Leaflet.draw can edit them
+    if (editGroup) editGroup.addLayer(marker);
+
     droppedPoints.push({ lat, lng, marker, ts: Date.now() });
+
+    syncMiniFromState();
   }
 
+  // -----------------------------
+  // ✅ Edit Mode (Leaflet.draw)
+  // -----------------------------
+  function enterEditMode() {
+    if (!map || !editGroup) return;
+
+    // Enforce rule: cannot edit while path is started
+    if (tracking) return;
+
+    // Only enable if there is something to edit
+    const hasAny = droppedPoints.length > 0 || pathLatLngs.length > 1;
+    if (!hasAny) return;
+
+    if (editMode) return;
+    editMode = true;
+
+    // Build a Leaflet.draw edit handler programmatically (no toolbar UI)
+    try {
+      if (!L.EditToolbar || !L.EditToolbar.Edit)
+        throw new Error("Leaflet.draw edit not available.");
+
+      editHandler = new L.EditToolbar.Edit(map, {
+        featureGroup: editGroup,
+        selectedPathOptions: {
+          // Keep it simple—Leaflet.draw will style selection anyway
+          maintainColor: true,
+        },
+      });
+
+      editHandler.enable();
+    } catch (e) {
+      console.warn(e);
+      alert("Edit mode failed to start. Leaflet.draw may not have loaded.");
+      editMode = false;
+      editHandler = null;
+      return;
+    }
+
+    updateMapUI();
+  }
+
+  function exitEditMode(silent = false) {
+    if (!map || !editGroup) return;
+    if (!editMode) return;
+
+    editMode = false;
+
+    try {
+      if (editHandler) editHandler.disable();
+    } catch {}
+    editHandler = null;
+
+    // ✅ Write the edited geometry back into our state arrays
+    commitEditsToState();
+
+    if (!silent) {
+      // Small UX nudge that edits are saved
+      // (No toast system here; keeping it minimal.)
+    }
+
+    updateMapUI();
+    syncMiniFromState();
+  }
+
+  function commitEditsToState() {
+    // Update droppedPoints from their markers
+    for (const p of droppedPoints) {
+      try {
+        const ll = p.marker.getLatLng();
+        p.lat = ll.lat;
+        p.lng = ll.lng;
+      } catch {}
+    }
+
+    // Update pathLatLngs from the polyline
+    if (pathLine) {
+      try {
+        const ll = pathLine.getLatLngs() || [];
+        pathLatLngs.length = 0;
+        for (const x of ll) {
+          // x is a LatLng
+          pathLatLngs.push(L.latLng(x.lat, x.lng));
+        }
+        // Keep minimap path in sync too
+        if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
+      } catch {}
+    }
+
+    updateMapReadout();
+  }
+
+  // -----------------------------
+  // Clear / Readout / UI
+  // -----------------------------
   function clearAll() {
+    // If editing, exit (and avoid committing edits)
+    if (editMode) {
+      try {
+        if (editHandler) editHandler.disable();
+      } catch {}
+      editHandler = null;
+      editMode = false;
+    }
+
     for (const p of droppedPoints) {
       try {
         p.marker.remove();
@@ -436,21 +613,23 @@
     }
     droppedPoints.length = 0;
 
-    for (const m of miniDropped) {
-      try {
-        m.remove();
-      } catch {}
-    }
-    miniDropped.length = 0;
-
-    pathLatLngs.length = 0;
+    if (pathLatLngs.length) pathLatLngs.length = 0;
     if (pathLine) pathLine.setLatLngs(pathLatLngs);
     if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
+
+    // Ensure editGroup only contains the pathLine now
+    if (editGroup) {
+      try {
+        editGroup.clearLayers();
+        if (pathLine) editGroup.addLayer(pathLine);
+      } catch {}
+    }
 
     if (mapExportArea) mapExportArea.style.display = "none";
     if (mapExportImg) mapExportImg.src = "";
     if (mapDownloadLink) mapDownloadLink.removeAttribute("href");
 
+    syncMiniFromState();
     updateMapUI();
     updateMapReadout();
   }
@@ -467,22 +646,57 @@
       accText = ` • ±${Math.round(extra.accuracy)}m`;
     }
 
-    const text = `GPS: ${gps}${accText} • Points: ${pts} • Path: ${pathPts}`;
+    const editText = editMode ? " • EDITING" : "";
+    const text = `GPS: ${gps}${accText} • Points: ${pts} • Path: ${pathPts}${editText}`;
     mapReadout.textContent = text;
-    updateMiniReadout(text);
+    updateMiniReadout(
+      `GPS: ${gps}${accText} • Points: ${pts} • Path: ${pathPts}`,
+    );
   }
 
   function updateMapUI() {
     const hasGPS = !!youMarker;
-    const hasAny = droppedPoints.length > 0 || pathLatLngs.length > 0;
+    const hasAny = droppedPoints.length > 0 || pathLatLngs.length > 1;
 
+    // Start/Stop labels
     if (startTrackBtn) {
       startTrackBtn.textContent = tracking ? "⏹️ Stop path" : "▶️ Start path";
+      startTrackBtn.disabled = editMode; // Don't allow start while editing
+    }
+    if (comboStartPathBtn) {
+      comboStartPathBtn.textContent = tracking
+        ? "⏹️ Stop path"
+        : "▶️ Start path";
+      comboStartPathBtn.disabled = editMode;
     }
 
-    if (dropPointBtn) dropPointBtn.disabled = !hasGPS;
-    if (exportMapBtn) exportMapBtn.disabled = !map || (!hasAny && !hasGPS);
-    if (clearMapBtn) clearMapBtn.disabled = !hasAny && !hasGPS;
+    // Drop point buttons
+    if (dropPointBtn) dropPointBtn.disabled = !hasGPS || editMode;
+    if (comboDropPointBtn) comboDropPointBtn.disabled = !hasGPS || editMode;
+
+    // Center buttons
+    if (comboCenterBtn) comboCenterBtn.disabled = !hasGPS;
+
+    // Export/Clear
+    if (exportMapBtn)
+      exportMapBtn.disabled = !map || (!hasAny && !hasGPS) || editMode;
+    if (clearMapBtn) clearMapBtn.disabled = (!hasAny && !hasGPS) || editMode;
+
+    // ✅ Edit buttons only when NOT tracking and there is something to edit
+    const canEdit = !!map && !tracking && hasAny;
+
+    if (editMapBtn) editMapBtn.disabled = !canEdit || editMode;
+    if (doneEditMapBtn) doneEditMapBtn.style.display = editMode ? "" : "none";
+
+    if (editMapBtn) editMapBtn.style.display = editMode ? "none" : "";
+
+    if (comboEditBtn) {
+      comboEditBtn.disabled = !canEdit;
+      comboEditBtn.textContent = editMode ? "✅ Done" : "✏️ Edit";
+    }
+
+    updateMapReadout();
+    syncMiniFromState();
   }
 
   async function exportMapImage() {
@@ -528,6 +742,7 @@
       if (readout) readout.style.display = prevReadout;
     }
   }
+
+  // Default tab
   setAppTab("video");
-  // default tab is Video by markup; map initializes lazily.
 })();

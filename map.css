@@ -82,7 +82,8 @@
   border-radius: 16px;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--card) 92%, transparent);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
 }
 
 .mapPadMid {
@@ -140,11 +141,6 @@
 /* Combo tab (fullscreen stage)  */
 /* ----------------------------- */
 
-/*
-  Map.js toggles panels via style.display. We make the COMBO panel a full-screen
-  overlay when visible.
-  On modern browsers, :has() hides the header + removes main padding.
-*/
 #comboTabPanel {
   /* default card styling still applies when hidden */
 }
@@ -360,4 +356,29 @@
     height: 150px;
     bottom: calc(env(safe-area-inset-bottom) + 190px);
   }
+}
+
+/* ----------------------------- */
+/* ✅ Editing UX (Leaflet.draw)  */
+/* ----------------------------- */
+
+/* Bigger edit handles for touch */
+.leaflet-editing-icon {
+  width: 18px !important;
+  height: 18px !important;
+  margin-left: -9px !important;
+  margin-top: -9px !important;
+  border-radius: 999px !important;
+}
+
+/* Slightly more obvious handle color/contrast (keeps it readable on satellite) */
+.leaflet-div-icon.leaflet-editing-icon {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 2px solid rgba(0, 0, 0, 0.55) !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* We are NOT using the Leaflet.draw toolbar UI; hide if it appears */
+.leaflet-draw {
+  display: none !important;
 }

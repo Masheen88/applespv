@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!doctype html>
 <html lang="en">
   <head>
@@ -17,6 +16,13 @@
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+
+    <!-- ✅ Leaflet.draw CSS (for path/marker editing) -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"
       crossorigin=""
     />
   </head>
@@ -246,7 +252,6 @@
                 <div>Status: <span class="mono" id="progressText">—</span></div>
               </div>
 
-              <!-- NEW: per-attempt progress bar -->
               <div class="status compact" style="margin-top: 8px">
                 <span class="pill"
                   >Progress: <span class="mono" id="convPctLabel">—</span></span
@@ -345,6 +350,15 @@
                     📍 Drop point
                   </button>
                   <button
+                    id="comboEditBtn"
+                    class="btn"
+                    type="button"
+                    disabled
+                    title="Edit points/path (only when path is stopped)"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
                     id="comboCenterBtn"
                     class="btn"
                     type="button"
@@ -358,8 +372,8 @@
                 </div>
 
                 <div class="comboDockHint note">
-                  Tip: Record video and track your walking path at the same
-                  time. The minimap stays north-up.
+                  Tip: Start/stop the path. After you stop, tap Edit to move
+                  points and tweak the path.
                 </div>
               </div>
             </div>
@@ -371,7 +385,6 @@
       <!-- MAP TAB                  -->
       <!-- ========================= -->
       <section id="mapTabPanel" class="card" style="display: none">
-        <!-- unchanged -->
         <h2>
           <span>Map / Plot</span>
           <span class="pill">North-up • Satellite • GPS</span>
@@ -427,6 +440,26 @@
               <button id="dropPointBtn" class="btn" type="button" disabled>
                 🔴 Drop point
               </button>
+
+              <!-- ✅ NEW: Edit / Done buttons -->
+              <button
+                id="editMapBtn"
+                class="btn"
+                type="button"
+                disabled
+                title="Edit points/path (only when path is stopped)"
+              >
+                ✏️ Edit
+              </button>
+              <button
+                id="doneEditMapBtn"
+                class="btn"
+                type="button"
+                style="display: none"
+              >
+                ✅ Done
+              </button>
+
               <button id="exportMapBtn" class="btn" type="button" disabled>
                 🖼️ Export image
               </button>
@@ -446,9 +479,8 @@
           </div>
 
           <div class="note">
-            Tip: Your phone’s compass won’t rotate the map—this view stays
-            north-up. The blue line is your tracked path; red dots are manual
-            “drop points.”
+            Tip: Start/stop the path. After you stop, use Edit to move points
+            and adjust the blue line (drag handles).
           </div>
 
           <div id="mapExportArea" class="mapExportArea" style="display: none">
@@ -489,13 +521,11 @@
       role="dialog"
       aria-modal="true"
     >
-      <!-- unchanged -->
       <div class="sheetHeader">
         <h3>Settings</h3>
         <button id="closeSheetBtn" class="btn" type="button">✖️ Close</button>
       </div>
       <div class="sheetBody">
-        <!-- unchanged -->
         <div class="twoCol">
           <div>
             <label for="cameraSelect">Camera</label>
@@ -618,6 +648,12 @@
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <!-- ✅ Leaflet.draw JS -->
+    <script
+      src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"
       crossorigin=""
     ></script>
 
