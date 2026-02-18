@@ -1,4 +1,4 @@
-/* map.css */
+/* /map.css */
 
 /* Top-level tabs under header */
 .topTabs {
@@ -81,7 +81,6 @@
   padding: 2px;
   border-radius: 16px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 92%, transparent);
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
 }
@@ -141,24 +140,16 @@
 /* Combo tab (fullscreen stage)  */
 /* ----------------------------- */
 
-#comboTabPanel {
-  /* default card styling still applies when hidden */
-}
-
 #comboTabPanel:not([style*="display: none"]) {
   position: fixed;
   inset: 0;
   z-index: 1000;
   border-radius: 0;
-  border-left: 0;
-  border-right: 0;
-  border-top: 0;
-  border-bottom: 0;
+  border: 0;
   box-shadow: none;
   background: #000;
 }
 
-/* Hide combo section header bar inside fullscreen */
 #comboTabPanel:not([style*="display: none"]) > h2 {
   display: none;
 }
@@ -167,7 +158,6 @@
   padding: 0;
 }
 
-/* Progressive enhancement: hide app header + remove main padding in combo */
 @supports selector(body:has(#comboTabPanel)) {
   body:has(#comboTabPanel:not([style*="display: none"])) header {
     display: none;
@@ -177,10 +167,6 @@
     padding: 0;
     margin: 0;
   }
-}
-
-.comboContent {
-  padding-bottom: 0;
 }
 
 .comboFullscreenStage {
@@ -204,16 +190,13 @@
   max-height: none;
 }
 
-/* Top HUD */
 .comboHud {
   position: absolute;
   left: 12px;
   right: 12px;
   top: calc(env(safe-area-inset-top) + 10px);
-  max-width: calc(100% - 25px);
   z-index: 1100;
   display: flex;
-  justify-content: flex-start;
   pointer-events: none;
 }
 
@@ -228,7 +211,6 @@
   white-space: nowrap;
 }
 
-/* GTA-style minimap overlay */
 .miniMapWrap {
   position: absolute;
   right: 12px;
@@ -256,7 +238,6 @@
   inset: 0;
 }
 
-/* keep Leaflet from adding margins inside minimap */
 #minimap .leaflet-container {
   background: #000;
 }
@@ -275,7 +256,6 @@
   color: var(--text);
 }
 
-/* Bottom control dock */
 .comboDock {
   position: absolute;
   left: 0;
@@ -300,12 +280,6 @@
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.comboDockTitle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .comboDockActions {
@@ -335,27 +309,28 @@
   }
 }
 
-/* Make dock buttons extra thumb-friendly */
-#comboTabPanel:not([style*="display: none"]) .btn {
-  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+/* ----------------------------- */
+/* ✅ Numbered drop points       */
+/* ----------------------------- */
+
+/* Leaflet divIcon wrapper class */
+.dropPointIcon {
+  /* no visual here; the inner .dot handles it */
 }
 
-#comboTabPanel:not([style*="display: none"]) .btn.primary {
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
-}
-
-.comboDockHint {
-  margin-top: 2px;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-/* Slightly reduce minimap when dock is tall on tiny screens */
-@media (max-height: 700px) and (max-width: 420px) {
-  .miniMapWrap {
-    width: 150px;
-    height: 150px;
-    bottom: calc(env(safe-area-inset-bottom) + 190px);
-  }
+/* The dot (size + font size are set inline by JS for live updates) */
+.dropPointIcon .dot {
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ff2d2d;
+  border: 2px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.98);
+  font-weight: 900;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* ----------------------------- */
@@ -371,7 +346,6 @@
   border-radius: 999px !important;
 }
 
-/* Slightly more obvious handle color/contrast (keeps it readable on satellite) */
 .leaflet-div-icon.leaflet-editing-icon {
   background: rgba(255, 255, 255, 0.9) !important;
   border: 2px solid rgba(0, 0, 0, 0.55) !important;
@@ -381,4 +355,39 @@
 /* We are NOT using the Leaflet.draw toolbar UI; hide if it appears */
 .leaflet-draw {
   display: none !important;
+}
+
+/* ----------------------------- */
+/* ✅ Edit style panel           */
+/* ----------------------------- */
+
+.editStylePanel {
+  position: absolute;
+  left: 10px;
+  bottom: calc(68px + env(safe-area-inset-bottom));
+  z-index: 600;
+  width: min(320px, calc(100% - 20px));
+  padding: 10px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.editStyleTitle {
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.editStyleRow {
+  display: grid;
+  grid-template-columns: 84px 1fr 44px;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.editStyleRow input[type="range"] {
+  width: 100%;
 }

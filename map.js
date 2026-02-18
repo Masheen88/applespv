@@ -1,4 +1,4 @@
-// map.js
+// /map.js
 (() => {
   // -----------------------------
   // Tab switching (Video / Map / Combo)
@@ -16,20 +16,15 @@
     const isMap = tab === "map";
     const isCombo = tab === "combo";
 
-    // ✅ IMPORTANT: only hide header in combo mode
     document.body.classList.toggle("comboMode", isCombo);
 
     if (videoTabPanel) videoTabPanel.style.display = isVideo ? "" : "none";
     if (mapTabPanel) mapTabPanel.style.display = isMap ? "" : "none";
     if (comboTabPanel) comboTabPanel.style.display = isCombo ? "" : "none";
 
-    // Lazy init map when Map or Combo opens (tracking relies on it)
     if (isMap || isCombo) initMapOnce();
-
-    // Minimap lives inside Combo tab
     if (isCombo) initMiniMapOnce();
 
-    // Leaflet needs a size invalidate when a map becomes visible
     if (isMap && map) {
       setTimeout(() => {
         try {
@@ -45,7 +40,6 @@
       }, 80);
     }
 
-    // Sync edit button state when switching tabs
     updateMapUI();
   }
 
@@ -61,7 +55,6 @@
     });
   if (appTabCombo)
     appTabCombo.addEventListener("click", () => setAppTab("combo"));
-
   if (comboExitBtn)
     comboExitBtn.addEventListener("click", () => setAppTab("video"));
 
@@ -70,35 +63,40 @@
   // -----------------------------
   let mapInited = false;
   let map = null;
-  let tile = null;
 
-  // Combo minimap (GTA-style overlay)
+  // Combo minimap
   let miniInited = false;
   let miniMap = null;
-  let miniTile = null;
-
   let miniYouMarker = null;
-  const miniDropped = []; // markers
+  const miniDropped = [];
   let miniPathLine = null;
 
   let watchId = null;
   let tracking = false;
 
-  // ✅ Editing state
+  // Editing state
   let editMode = false;
-  let editHandler = null; // Leaflet.draw edit handler
+  let editHandler = null;
 
-  // Current position marker (blue dot)
+  // Current position marker
   let youMarker = null;
 
-  // Red “drop points”
-  const droppedPoints = []; // [{lat,lng,marker,ts}]
-  // Blue path polyline
+  // Drop points (numbered)
+  const droppedPoints = []; // [{id, n, lat, lng, marker, ts}]
+  let nextDropId = 1;
+
+  // Path polyline
   let pathLine = null;
   const pathLatLngs = [];
 
-  // ✅ FeatureGroup that holds editable layers
+  // FeatureGroup that holds editable layers
   let editGroup = null;
+
+  // Style controls (dot size + font size)
+  const styleState = {
+    dotSize: 28,
+    fontSize: 14,
+  };
 
   // UI
   const mapBanner = document.getElementById("mapBanner");
@@ -110,12 +108,15 @@
   const exportMapBtn = document.getElementById("exportMapBtn");
   const clearMapBtn = document.getElementById("clearMapBtn");
 
-  // ✅ New edit buttons (Map tab)
   const editMapBtn = document.getElementById("editMapBtn");
   const doneEditMapBtn = document.getElementById("doneEditMapBtn");
-
-  // ✅ Combo edit button
   const comboEditBtn = document.getElementById("comboEditBtn");
+
+  const editStylePanel = document.getElementById("editStylePanel");
+  const dpSizeRange = document.getElementById("dpSizeRange");
+  const dpSizeLabel = document.getElementById("dpSizeLabel");
+  const dpFontRange = document.getElementById("dpFontRange");
+  const dpFontLabel = document.getElementById("dpFontLabel");
 
   const mapExportArea = document.getElementById("mapExportArea");
   const mapExportImg = document.getElementById("mapExportImg");
@@ -130,23 +131,12 @@
   const panRightBtn = document.getElementById("mapPanRightBtn");
   const centerBtn = document.getElementById("mapCenterBtn");
 
-  // Combo controls (if present)
+  // Combo controls
   const comboStartPathBtn = document.getElementById("comboStartPathBtn");
   const comboDropPointBtn = document.getElementById("comboDropPointBtn");
   const comboCenterBtn = document.getElementById("comboCenterBtn");
 
-  // Icons (simple circles)
-  const redDotIcon = L.divIcon({
-    className: "redDotIcon",
-    html: `<div style="
-      width: 12px; height: 12px; border-radius: 999px;
-      background: #ff2d2d; border: 2px solid rgba(0,0,0,.35);
-      box-shadow: 0 2px 10px rgba(0,0,0,.25);
-    "></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
-  });
-
+  // You marker icon
   const youIcon = L.divIcon({
     className: "youDotIcon",
     html: `<div style="
@@ -169,7 +159,7 @@
       worldCopyJump: true,
     });
 
-    tile = L.tileLayer(
+    L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
         maxZoom: 20,
@@ -180,21 +170,17 @@
 
     map.setView([36.1627, -86.7816], 18);
 
-    // ✅ Create editable group and add to map
     editGroup = new L.FeatureGroup();
     editGroup.addTo(map);
 
-    // Create path line and include in editable group
-    pathLine = L.polyline(pathLatLngs, {
-      weight: 4,
-      opacity: 0.9,
-    });
+    pathLine = L.polyline(pathLatLngs, { weight: 4, opacity: 0.9 });
     pathLine.addTo(map);
     editGroup.addLayer(pathLine);
 
     wireMapControls();
-    requestOneShotLocation();
+    wireStyleControls();
 
+    requestOneShotLocation();
     updateMapUI();
     syncMiniFromState();
   }
@@ -218,7 +204,7 @@
       inertia: false,
     });
 
-    miniTile = L.tileLayer(
+    L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {
         maxZoom: 20,
@@ -229,10 +215,7 @@
 
     miniMap.setView([36.1627, -86.7816], 18);
 
-    miniPathLine = L.polyline([], {
-      weight: 3,
-      opacity: 0.9,
-    }).addTo(miniMap);
+    miniPathLine = L.polyline([], { weight: 3, opacity: 0.9 }).addTo(miniMap);
 
     syncMiniFromState();
   }
@@ -242,20 +225,17 @@
 
     if (youMarker) {
       const ll = youMarker.getLatLng();
-      if (!miniYouMarker) {
+      if (!miniYouMarker)
         miniYouMarker = L.marker(ll, { icon: youIcon }).addTo(miniMap);
-      } else {
-        miniYouMarker.setLatLng(ll);
-      }
+      else miniYouMarker.setLatLng(ll);
+
       miniMap.setView(ll, Math.max(miniMap.getZoom(), 18), { animate: false });
     }
 
-    if (miniPathLine) {
-      miniPathLine.setLatLngs(pathLatLngs);
-    }
+    if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
-    // ✅ Rebuild minimap dropped markers (keeps them correct after edits)
-    if (miniDropped.length > 0) {
+    // rebuild minimap dropped markers (simple dots, not numbered, to keep it lightweight)
+    if (miniDropped.length) {
       for (const m of miniDropped) {
         try {
           m.remove();
@@ -263,8 +243,14 @@
       }
       miniDropped.length = 0;
     }
+
     for (const p of droppedPoints) {
-      const m = L.marker([p.lat, p.lng], { icon: redDotIcon }).addTo(miniMap);
+      const m = L.circleMarker([p.lat, p.lng], {
+        radius: 5,
+        weight: 2,
+        opacity: 0.9,
+        fillOpacity: 0.9,
+      }).addTo(miniMap);
       miniDropped.push(m);
     }
   }
@@ -274,6 +260,50 @@
     miniReadout.textContent = text;
   }
 
+  // -----------------------------
+  // ✅ Numbered drop point icon
+  // -----------------------------
+  function buildDropPointIcon(n) {
+    const size = styleState.dotSize;
+    const font = styleState.fontSize;
+
+    const safeText = String(n ?? "");
+    const html = `
+      <div class="dot" style="
+        width:${size}px;
+        height:${size}px;
+        font-size:${font}px;
+      ">${escapeHtml(safeText)}</div>
+    `;
+
+    return L.divIcon({
+      className: "dropPointIcon",
+      html,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+  }
+
+  function updateAllDropPointIcons() {
+    for (const p of droppedPoints) {
+      try {
+        p.marker.setIcon(buildDropPointIcon(p.n));
+      } catch {}
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // -----------------------------
+  // Controls wiring
+  // -----------------------------
   function wireMapControls() {
     if (zoomInBtn)
       zoomInBtn.addEventListener("click", () => map && map.zoomIn());
@@ -298,27 +328,18 @@
         });
       });
 
-    // ✅ Map tab start/stop
     if (startTrackBtn)
       startTrackBtn.addEventListener("click", async () => {
-        if (!tracking) {
-          await startTracking();
-        } else {
-          stopTracking();
-        }
+        if (!tracking) await startTracking();
+        else stopTracking();
       });
 
-    // ✅ Combo start/stop
     if (comboStartPathBtn)
       comboStartPathBtn.addEventListener("click", async () => {
-        if (!tracking) {
-          await startTracking();
-        } else {
-          stopTracking();
-        }
+        if (!tracking) await startTracking();
+        else stopTracking();
       });
 
-    // Drop point (Map tab)
     if (dropPointBtn)
       dropPointBtn.addEventListener("click", () => {
         if (!youMarker) return;
@@ -327,7 +348,6 @@
         updateMapUI();
       });
 
-    // Drop point (Combo)
     if (comboDropPointBtn)
       comboDropPointBtn.addEventListener("click", () => {
         if (!youMarker) return;
@@ -336,7 +356,6 @@
         updateMapUI();
       });
 
-    // Center (Combo)
     if (comboCenterBtn)
       comboCenterBtn.addEventListener("click", () => {
         if (!map || !youMarker) return;
@@ -349,12 +368,10 @@
     if (exportMapBtn)
       exportMapBtn.addEventListener("click", async () => exportMapImage());
 
-    // ✅ Edit buttons (Map)
     if (editMapBtn) editMapBtn.addEventListener("click", () => enterEditMode());
     if (doneEditMapBtn)
       doneEditMapBtn.addEventListener("click", () => exitEditMode());
 
-    // ✅ Edit button (Combo) toggles same mode
     if (comboEditBtn)
       comboEditBtn.addEventListener("click", () => {
         if (editMode) exitEditMode();
@@ -362,6 +379,34 @@
       });
   }
 
+  function wireStyleControls() {
+    // Default values (keep in sync with index.html)
+    if (dpSizeRange) styleState.dotSize = Number(dpSizeRange.value || 28);
+    if (dpFontRange) styleState.fontSize = Number(dpFontRange.value || 14);
+
+    if (dpSizeLabel) dpSizeLabel.textContent = String(styleState.dotSize);
+    if (dpFontLabel) dpFontLabel.textContent = String(styleState.fontSize);
+
+    if (dpSizeRange) {
+      dpSizeRange.addEventListener("input", () => {
+        styleState.dotSize = Number(dpSizeRange.value || 28);
+        if (dpSizeLabel) dpSizeLabel.textContent = String(styleState.dotSize);
+        updateAllDropPointIcons();
+      });
+    }
+
+    if (dpFontRange) {
+      dpFontRange.addEventListener("input", () => {
+        styleState.fontSize = Number(dpFontRange.value || 14);
+        if (dpFontLabel) dpFontLabel.textContent = String(styleState.fontSize);
+        updateAllDropPointIcons();
+      });
+    }
+  }
+
+  // -----------------------------
+  // Location
+  // -----------------------------
   function requestOneShotLocation() {
     if (!navigator.geolocation) {
       showBanner(true, "Geolocation not supported on this device.");
@@ -379,11 +424,7 @@
         showBanner(true);
         updateMapUI();
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 0,
-      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
     );
   }
 
@@ -399,23 +440,23 @@
   function ensureYouMarker(lat, lng) {
     if (!map) return;
 
-    if (!youMarker) {
+    if (!youMarker)
       youMarker = L.marker([lat, lng], { icon: youIcon }).addTo(map);
-    } else {
-      youMarker.setLatLng([lat, lng]);
-    }
+    else youMarker.setLatLng([lat, lng]);
 
     if (miniMap) {
       const ll = L.latLng(lat, lng);
-      if (!miniYouMarker) {
+      if (!miniYouMarker)
         miniYouMarker = L.marker(ll, { icon: youIcon }).addTo(miniMap);
-      } else {
-        miniYouMarker.setLatLng(ll);
-      }
+      else miniYouMarker.setLatLng(ll);
+
       miniMap.setView(ll, Math.max(miniMap.getZoom(), 18), { animate: false });
     }
   }
 
+  // -----------------------------
+  // Tracking
+  // -----------------------------
   function startTracking() {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
@@ -429,7 +470,7 @@
         return;
       }
 
-      // ✅ You can't edit while tracking
+      // You can't edit while tracking
       if (editMode) exitEditMode(true);
 
       tracking = true;
@@ -440,24 +481,22 @@
           showBanner(false);
 
           const { latitude, longitude, accuracy } = pos.coords;
-
           ensureYouMarker(latitude, longitude);
 
           const ll = L.latLng(latitude, longitude);
           pathLatLngs.push(ll);
+
           if (pathLine) pathLine.setLatLngs(pathLatLngs);
           if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
           if (map && youMarker) {
             const bounds = map.getBounds();
-            if (!bounds.contains(ll)) {
+            if (!bounds.contains(ll))
               map.panTo(ll, { animate: true, duration: 0.35 });
-            }
           }
 
           updateMapReadout({ accuracy });
           updateMapUI();
-
           resolve(true);
         },
         (err) => {
@@ -470,11 +509,7 @@
           updateMapUI();
           resolve(false);
         },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 500,
-          timeout: 15000,
-        },
+        { enableHighAccuracy: true, maximumAge: 500, timeout: 15000 },
       );
     });
   }
@@ -489,46 +524,80 @@
     updateMapReadout();
   }
 
+  // -----------------------------
+  // Drop points (numbered)
+  // -----------------------------
   function dropPoint(lat, lng) {
     if (!map) return;
 
-    const marker = L.marker([lat, lng], { icon: redDotIcon }).addTo(map);
+    const n = droppedPoints.length + 1; // default number
+    const icon = buildDropPointIcon(n);
 
-    // ✅ Put markers into editable group so Leaflet.draw can edit them
+    const marker = L.marker([lat, lng], {
+      icon,
+      draggable: false, // Leaflet.draw handles editing; we keep this false
+      keyboard: false,
+    }).addTo(map);
+
+    // Put markers into editable group so Leaflet.draw can edit them
     if (editGroup) editGroup.addLayer(marker);
 
-    droppedPoints.push({ lat, lng, marker, ts: Date.now() });
+    const id = nextDropId++;
+    const item = { id, n, lat, lng, marker, ts: Date.now() };
+    droppedPoints.push(item);
+
+    // Tap marker (in edit mode) => renumber
+    marker.on("click", () => {
+      if (!editMode) return;
+      promptRenumber(item);
+    });
 
     syncMiniFromState();
   }
 
+  function promptRenumber(item) {
+    const current = item.n ?? "";
+    const v = prompt("Point number:", String(current));
+    if (v == null) return; // cancelled
+
+    const trimmed = String(v).trim();
+    if (!trimmed) return;
+
+    // allow 1..9999 or any numeric string; keep it simple
+    const num = Number(trimmed);
+    if (!Number.isFinite(num) || num <= 0) {
+      alert("Please enter a positive number.");
+      return;
+    }
+
+    item.n = Math.floor(num);
+    try {
+      item.marker.setIcon(buildDropPointIcon(item.n));
+    } catch {}
+
+    updateMapReadout();
+  }
+
   // -----------------------------
-  // ✅ Edit Mode (Leaflet.draw)
+  // Edit Mode (Leaflet.draw)
   // -----------------------------
   function enterEditMode() {
     if (!map || !editGroup) return;
-
-    // Enforce rule: cannot edit while path is started
     if (tracking) return;
 
-    // Only enable if there is something to edit
     const hasAny = droppedPoints.length > 0 || pathLatLngs.length > 1;
     if (!hasAny) return;
 
     if (editMode) return;
     editMode = true;
 
-    // Build a Leaflet.draw edit handler programmatically (no toolbar UI)
     try {
       if (!L.EditToolbar || !L.EditToolbar.Edit)
         throw new Error("Leaflet.draw edit not available.");
 
       editHandler = new L.EditToolbar.Edit(map, {
         featureGroup: editGroup,
-        selectedPathOptions: {
-          // Keep it simple—Leaflet.draw will style selection anyway
-          maintainColor: true,
-        },
+        selectedPathOptions: { maintainColor: true },
       });
 
       editHandler.enable();
@@ -554,12 +623,10 @@
     } catch {}
     editHandler = null;
 
-    // ✅ Write the edited geometry back into our state arrays
     commitEditsToState();
 
     if (!silent) {
-      // Small UX nudge that edits are saved
-      // (No toast system here; keeping it minimal.)
+      // no toast system here — minimal
     }
 
     updateMapUI();
@@ -581,11 +648,7 @@
       try {
         const ll = pathLine.getLatLngs() || [];
         pathLatLngs.length = 0;
-        for (const x of ll) {
-          // x is a LatLng
-          pathLatLngs.push(L.latLng(x.lat, x.lng));
-        }
-        // Keep minimap path in sync too
+        for (const x of ll) pathLatLngs.push(L.latLng(x.lat, x.lng));
         if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
       } catch {}
     }
@@ -597,7 +660,6 @@
   // Clear / Readout / UI
   // -----------------------------
   function clearAll() {
-    // If editing, exit (and avoid committing edits)
     if (editMode) {
       try {
         if (editHandler) editHandler.disable();
@@ -613,11 +675,10 @@
     }
     droppedPoints.length = 0;
 
-    if (pathLatLngs.length) pathLatLngs.length = 0;
+    pathLatLngs.length = 0;
     if (pathLine) pathLine.setLatLngs(pathLatLngs);
     if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
-    // Ensure editGroup only contains the pathLine now
     if (editGroup) {
       try {
         editGroup.clearLayers();
@@ -642,13 +703,13 @@
     const pathPts = pathLatLngs.length;
 
     let accText = "";
-    if (typeof extra.accuracy === "number") {
+    if (typeof extra.accuracy === "number")
       accText = ` • ±${Math.round(extra.accuracy)}m`;
-    }
 
     const editText = editMode ? " • EDITING" : "";
     const text = `GPS: ${gps}${accText} • Points: ${pts} • Path: ${pathPts}${editText}`;
     mapReadout.textContent = text;
+
     updateMiniReadout(
       `GPS: ${gps}${accText} • Points: ${pts} • Path: ${pathPts}`,
     );
@@ -658,11 +719,11 @@
     const hasGPS = !!youMarker;
     const hasAny = droppedPoints.length > 0 || pathLatLngs.length > 1;
 
-    // Start/Stop labels
     if (startTrackBtn) {
       startTrackBtn.textContent = tracking ? "⏹️ Stop path" : "▶️ Start path";
-      startTrackBtn.disabled = editMode; // Don't allow start while editing
+      startTrackBtn.disabled = editMode;
     }
+
     if (comboStartPathBtn) {
       comboStartPathBtn.textContent = tracking
         ? "⏹️ Stop path"
@@ -670,30 +731,31 @@
       comboStartPathBtn.disabled = editMode;
     }
 
-    // Drop point buttons
     if (dropPointBtn) dropPointBtn.disabled = !hasGPS || editMode;
     if (comboDropPointBtn) comboDropPointBtn.disabled = !hasGPS || editMode;
 
-    // Center buttons
     if (comboCenterBtn) comboCenterBtn.disabled = !hasGPS;
 
-    // Export/Clear
     if (exportMapBtn)
       exportMapBtn.disabled = !map || (!hasAny && !hasGPS) || editMode;
     if (clearMapBtn) clearMapBtn.disabled = (!hasAny && !hasGPS) || editMode;
 
-    // ✅ Edit buttons only when NOT tracking and there is something to edit
     const canEdit = !!map && !tracking && hasAny;
 
-    if (editMapBtn) editMapBtn.disabled = !canEdit || editMode;
-    if (doneEditMapBtn) doneEditMapBtn.style.display = editMode ? "" : "none";
+    if (editMapBtn) {
+      editMapBtn.disabled = !canEdit || editMode;
+      editMapBtn.style.display = editMode ? "none" : "";
+    }
 
-    if (editMapBtn) editMapBtn.style.display = editMode ? "none" : "";
+    if (doneEditMapBtn) doneEditMapBtn.style.display = editMode ? "" : "none";
 
     if (comboEditBtn) {
       comboEditBtn.disabled = !canEdit;
       comboEditBtn.textContent = editMode ? "✅ Done" : "✏️ Edit";
     }
+
+    // Edit style panel visibility
+    if (editStylePanel) editStylePanel.style.display = editMode ? "" : "none";
 
     updateMapReadout();
     syncMiniFromState();
@@ -705,15 +767,18 @@
     const controls = document.querySelector(".mapControls");
     const actions = document.querySelector(".mapActionBar");
     const readout = document.querySelector(".mapReadout");
+    const stylePanel = document.querySelector(".editStylePanel");
 
     const prevControls = controls ? controls.style.display : "";
     const prevActions = actions ? actions.style.display : "";
     const prevReadout = readout ? readout.style.display : "";
+    const prevPanel = stylePanel ? stylePanel.style.display : "";
 
     try {
       if (controls) controls.style.display = "none";
       if (actions) actions.style.display = "none";
       if (readout) readout.style.display = "none";
+      if (stylePanel) stylePanel.style.display = "none";
 
       await new Promise((r) => setTimeout(r, 80));
 
@@ -740,6 +805,7 @@
       if (controls) controls.style.display = prevControls;
       if (actions) actions.style.display = prevActions;
       if (readout) readout.style.display = prevReadout;
+      if (stylePanel) stylePanel.style.display = prevPanel;
     }
   }
 

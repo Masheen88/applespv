@@ -441,7 +441,7 @@
                 🔴 Drop point
               </button>
 
-              <!-- ✅ NEW: Edit / Done buttons -->
+              <!-- ✅ Edit / Done buttons -->
               <button
                 id="editMapBtn"
                 class="btn"
@@ -475,6 +475,45 @@
 
             <div class="mapReadout mono" id="mapReadout">
               GPS: — • Points: 0 • Path: 0
+            </div>
+
+            <!-- ✅ NEW: Edit Style Panel (shown only in edit mode by map.js) -->
+            <div
+              id="editStylePanel"
+              class="editStylePanel"
+              style="display: none"
+            >
+              <div class="editStyleTitle">Edit style</div>
+
+              <div class="editStyleRow">
+                <label for="dpSizeRange">Dot size</label>
+                <input
+                  id="dpSizeRange"
+                  type="range"
+                  min="16"
+                  max="64"
+                  step="1"
+                  value="28"
+                />
+                <span class="mono" id="dpSizeLabel">28</span>
+              </div>
+
+              <div class="editStyleRow">
+                <label for="dpFontRange">Number font</label>
+                <input
+                  id="dpFontRange"
+                  type="range"
+                  min="10"
+                  max="36"
+                  step="1"
+                  value="14"
+                />
+                <span class="mono" id="dpFontLabel">14</span>
+              </div>
+
+              <div class="note" style="margin-top: 6px">
+                Tip: In Edit mode, tap a red dot to change its number.
+              </div>
             </div>
           </div>
 
