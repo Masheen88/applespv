@@ -38,6 +38,7 @@ const UI = {
     "tabUpload",
     "recordPanel",
     "uploadPanel",
+    "cameraGroup",
 
     "preview",
     "enableCameraBtn",
@@ -341,9 +342,13 @@ function setMode(next) {
   const isRecord = mode === "record";
   UI.tabRecord?.classList.toggle("active", isRecord);
   UI.tabUpload?.classList.toggle("active", !isRecord);
+  UI.cameraGroup?.classList.toggle("active", isRecord);
 
   UI.tabRecord?.setAttribute("aria-selected", isRecord ? "true" : "false");
   UI.tabUpload?.setAttribute("aria-selected", !isRecord ? "true" : "false");
+
+  //TODO if upload don't show id cameraGroup else show it toggle it by that id
+  showInline(UI.cameraGroup, isRecord);
 
   showInline(UI.recordPanel, isRecord);
   showInline(UI.uploadPanel, !isRecord);
