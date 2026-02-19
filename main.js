@@ -262,16 +262,14 @@ function fmtTime(sec) {
   return `${m}m ${s}s`;
 }
 function isSecureEnoughForCamera() {
-  return window.isSecureContext === true;
+  return globalThis.isSecureContext === true;
 }
 function safeIsTypeSupported(mime) {
   try {
-    return !!(
-      window.MediaRecorder &&
-      MediaRecorder.isTypeSupported &&
-      MediaRecorder.isTypeSupported(mime)
-    );
-  } catch (_) {
+    return !!MediaRecorder.isTypeSupported?.(mime);
+  } catch (error) {
+    console.error("An error has ocurred:", error);
+
     return false;
   }
 }
@@ -1123,7 +1121,10 @@ async function transcodeViaCanvas(
 
   // SILENT conversion playback
   UI.xVideo.src = inputUrl;
-  UI.xVideo.muted = true;
+
+  // - Do NOT set muted=true, because it can silence the MediaElementSource graph.
+  // - Keep it silent by setting volume=0 and using a 0-gain monitor node.
+  UI.xVideo.muted = false;
   UI.xVideo.volume = 0;
   UI.xVideo.playsInline = true;
   UI.xVideo.preload = "auto";
@@ -1142,15 +1143,37 @@ async function transcodeViaCanvas(
 
   const canvasStream = UI.xCanvas.captureStream(fps);
 
-  // Best-effort audio capture WITHOUT routing to speakers
+  // Best-effort audio capture WITHOUT audible output
   let mixedStream = canvasStream;
-  try {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const srcNode = ac.createMediaElementSource(UI.xVideo);
-    const dest = ac.createMediaStreamDestination();
+  let ac = null;
+  let dest = null;
 
-    // capture audio into dest (no ac.destination connect)
+  try {
+    ac = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
+
+    // On iOS, the AudioContext may start suspended even during “button click” flows.
+    // Calling resume() here makes audio rendering far more reliable.
+    if (ac.state === "suspended") {
+      try {
+        await ac.resume();
+      } catch (error) {
+        console.error("AudioContext resume failed:", error);
+      }
+    }
+
+    const srcNode = ac.createMediaElementSource(UI.xVideo);
+    dest = ac.createMediaStreamDestination();
+
+    // Route into the recording destination (this is what we capture)
     srcNode.connect(dest);
+
+    // ALSO create a silent monitor path to keep the audio graph “alive” on iOS.
+    // (0 gain -> destination = silent)
+    const zeroGain = ac.createGain();
+    zeroGain.gain.value = 0;
+
+    srcNode.connect(zeroGain);
+    zeroGain.connect(ac.destination);
 
     const audioTrack = dest.stream.getAudioTracks()[0] || null;
     if (audioTrack) {
@@ -1159,10 +1182,10 @@ async function transcodeViaCanvas(
         audioTrack,
       ]);
     }
-  } catch (_) {
+  } catch (error) {
+    console.error("Audio capture failed:", error);
     // audio capture may fail on some browsers; video-only still works
   }
-
   const outMime = bestRecorderMimeForCurrentDevice();
   const options = {};
   if (outMime) options.mimeType = outMime;
@@ -1172,8 +1195,9 @@ async function transcodeViaCanvas(
   let recorder;
   try {
     recorder = new MediaRecorder(mixedStream, options);
-  } catch (e) {
+  } catch (error) {
     URL.revokeObjectURL(inputUrl);
+    console.error("MediaRecorder initialization failed:", error);
     throw new Error(
       "MediaRecorder cannot encode with these settings on this device/browser.",
     );
@@ -1196,7 +1220,9 @@ async function transcodeViaCanvas(
     if (cancelRequested) {
       try {
         recorder.stop();
-      } catch (_) {}
+      } catch (error) {
+        console.error("Error stopping recorder after cancellation:", error);
+      }
       return;
     }
 
@@ -1236,7 +1262,12 @@ async function transcodeViaCanvas(
   // Start playback (still silent)
   try {
     await UI.xVideo.play();
-  } catch (_) {}
+  } catch (error) {
+    console.error("Video playback failed during conversion:", error);
+    recorder.stop();
+    URL.revokeObjectURL(inputUrl);
+    throw new Error("Video playback failed during conversion.");
+  }
 
   rafId = requestAnimationFrame(drawFrame);
 
@@ -1253,6 +1284,21 @@ async function transcodeViaCanvas(
   URL.revokeObjectURL(inputUrl);
 
   const outType = recorder.mimeType || outMime || "video/webm";
+
+  // Cleanup audio graph (prevents leaks / stuck audio on iOS)
+  try {
+    if (dest?.stream) {
+      dest.stream.getTracks().forEach((t) => t.stop());
+    }
+  } catch (error) {
+    console.error("Error stopping audio tracks during cleanup:", error);
+  }
+  try {
+    if (ac && ac.state !== "closed") await ac.close();
+  } catch (error) {
+    console.error("Error closing AudioContext during cleanup:", error);
+  }
+
   return new Blob(outChunks, { type: outType });
 }
 
