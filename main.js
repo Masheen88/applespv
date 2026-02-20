@@ -1,4 +1,3 @@
-// main.js
 /********************************************************************
  * 50MB Video Recorder/Converter (MP4-first)
  * - No FFmpeg. Uses canvas re-encode via MediaRecorder.
@@ -11,6 +10,12 @@
  * NEW (iPhone MOV -> MP4):
  * - If browser supports MP4 encoding AND uploaded input is not MP4 (e.g. .MOV),
  *   we FORCE a transcode to MP4 even if the file is already under 50MB.
+ *
+ * FIX (Android silent audio after conversion):
+ * - Prefer HTMLVideoElement.captureStream() audio track when available (best on Chromium/Android)
+ * - Fallback to AudioContext MediaElementSource -> MediaStreamDestination
+ * - Ensure playback starts before attempting to grab audio tracks
+ * - Only set audioBitsPerSecond when audio track exists
  ********************************************************************/
 
 // GorillaDesk limit
@@ -269,11 +274,11 @@ function safeIsTypeSupported(mime) {
     return !!MediaRecorder.isTypeSupported?.(mime);
   } catch (error) {
     console.error("An error has ocurred:", error);
-
     return false;
   }
 }
 function pickPreferredOutputMime() {
+  // Prefer explicit codecs when possible
   const mp4Candidates = [
     "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
     "video/mp4;codecs=avc1.4D401E,mp4a.40.2",
@@ -383,11 +388,7 @@ function showProgress(on) {
 
 function logProgress(line) {
   if (!UI.progressLog) return;
-  UI.progressLog.textContent = (
-    UI.progressLog.textContent +
-    "\n" +
-    line
-  ).trim();
+  UI.progressLog.textContent = (UI.progressLog.textContent + "\n" + line).trim();
   UI.progressLog.scrollTop = UI.progressLog.scrollHeight;
 }
 
@@ -740,9 +741,7 @@ function pickBestBackCameraId(cams) {
   const savedId = lsGet(LS_KEYS.CAMERA_ID, "");
   if (savedId && cams.some((c) => c.deviceId === savedId)) return savedId;
 
-  const byLabel = cams.find((c) =>
-    /back|rear|environment/i.test(c.label || ""),
-  );
+  const byLabel = cams.find((c) => /back|rear|environment/i.test(c.label || ""));
   if (byLabel) return byLabel.deviceId;
 
   const notFront = cams.find((c) => !/front|user/i.test(c.label || ""));
@@ -773,9 +772,7 @@ async function startPreview() {
   stopStream();
   torchOn = false;
 
-  const [w, h] = (UI.previewResSelect?.value || "1280x720")
-    .split("x")
-    .map(Number);
+  const [w, h] = (UI.previewResSelect?.value || "1280x720").split("x").map(Number);
   const fps = Number(UI.fpsSelect?.value) || 30;
 
   const selectedId = UI.cameraSelect?.value || "";
@@ -1106,6 +1103,22 @@ function scaleDownTier(curW, curH) {
   return sorted.find((t) => t.w * t.h < area) || sorted[sorted.length - 1];
 }
 
+// ✅ AUDIO FIX: Prefer captureStream audio (Android/Chromium), fallback to AudioContext graph.
+async function tryGetAudioTrackFromVideoElement(videoEl) {
+  try {
+    // Some browsers only provide audio tracks after playback has begun.
+    // We'll attempt captureStream first.
+    if (typeof videoEl.captureStream === "function") {
+      const vs = videoEl.captureStream();
+      const at = vs && vs.getAudioTracks ? vs.getAudioTracks()[0] : null;
+      if (at) return at;
+    }
+  } catch (_) {
+    // ignore and fallback
+  }
+  return null;
+}
+
 async function transcodeViaCanvas(
   inputBlob,
   outW,
@@ -1123,7 +1136,7 @@ async function transcodeViaCanvas(
   UI.xVideo.src = inputUrl;
 
   // - Do NOT set muted=true, because it can silence the MediaElementSource graph.
-  // - Keep it silent by setting volume=0 and using a 0-gain monitor node.
+  // - Keep it silent by setting volume=0.
   UI.xVideo.muted = false;
   UI.xVideo.volume = 0;
   UI.xVideo.playsInline = true;
@@ -1145,52 +1158,84 @@ async function transcodeViaCanvas(
 
   // Best-effort audio capture WITHOUT audible output
   let mixedStream = canvasStream;
+
+  // ✅ AUDIO FIX: Try captureStream() audio first (best on Android/Chromium)
+  let audioTrack = null;
+
+  // We start playback early to help Android produce audio tracks reliably.
+  // (still silent because volume=0)
+  try {
+    await UI.xVideo.play();
+  } catch (error) {
+    console.error("Video playback failed during conversion (pre-audio):", error);
+    URL.revokeObjectURL(inputUrl);
+    throw new Error("Video playback failed during conversion.");
+  }
+
+  // Attempt captureStream audio after playback begins
+  audioTrack = await tryGetAudioTrackFromVideoElement(UI.xVideo);
+
+  // Fallback: AudioContext graph
   let ac = null;
   let dest = null;
+  let zeroGain = null;
+  let srcNode = null;
 
-  try {
-    ac = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
+  if (!audioTrack) {
+    try {
+      ac = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
 
-    // On iOS, the AudioContext may start suspended even during “button click” flows.
-    // Calling resume() here makes audio rendering far more reliable.
-    if (ac.state === "suspended") {
-      try {
-        await ac.resume();
-      } catch (error) {
-        console.error("AudioContext resume failed:", error);
+      // On iOS, AudioContext may start suspended even during “button click” flows.
+      // Calling resume() here makes audio rendering far more reliable.
+      if (ac.state === "suspended") {
+        try {
+          await ac.resume();
+        } catch (error) {
+          console.error("AudioContext resume failed:", error);
+        }
       }
+
+      srcNode = ac.createMediaElementSource(UI.xVideo);
+      dest = ac.createMediaStreamDestination();
+
+      // Route into the recording destination (this is what we capture)
+      srcNode.connect(dest);
+
+      // ALSO create a silent monitor path to keep the audio graph “alive” (0 gain -> destination)
+      zeroGain = ac.createGain();
+      zeroGain.gain.value = 0;
+
+      srcNode.connect(zeroGain);
+      zeroGain.connect(ac.destination);
+
+      audioTrack = dest.stream.getAudioTracks()[0] || null;
+    } catch (error) {
+      console.error("Audio capture (AudioContext) failed:", error);
+      // audio capture may fail on some browsers; video-only still works
+      audioTrack = null;
     }
-
-    const srcNode = ac.createMediaElementSource(UI.xVideo);
-    dest = ac.createMediaStreamDestination();
-
-    // Route into the recording destination (this is what we capture)
-    srcNode.connect(dest);
-
-    // ALSO create a silent monitor path to keep the audio graph “alive” on iOS.
-    // (0 gain -> destination = silent)
-    const zeroGain = ac.createGain();
-    zeroGain.gain.value = 0;
-
-    srcNode.connect(zeroGain);
-    zeroGain.connect(ac.destination);
-
-    const audioTrack = dest.stream.getAudioTracks()[0] || null;
-    if (audioTrack) {
-      mixedStream = new MediaStream([
-        ...canvasStream.getVideoTracks(),
-        audioTrack,
-      ]);
-    }
-  } catch (error) {
-    console.error("Audio capture failed:", error);
-    // audio capture may fail on some browsers; video-only still works
   }
+
+  if (audioTrack) {
+    mixedStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      audioTrack,
+    ]);
+  } else {
+    // Helpful log so you can see this in the progress console if needed.
+    logProgress("⚠️ No audio track captured for this attempt (video-only output).");
+  }
+
   const outMime = bestRecorderMimeForCurrentDevice();
   const options = {};
   if (outMime) options.mimeType = outMime;
+
   options.videoBitsPerSecond = Math.floor(videoBps);
-  options.audioBitsPerSecond = Math.floor(audioBps);
+
+  // ✅ AUDIO FIX: Only set audioBitsPerSecond if we actually have an audio track
+  if (audioTrack) {
+    options.audioBitsPerSecond = Math.floor(audioBps);
+  }
 
   let recorder;
   try {
@@ -1259,16 +1304,7 @@ async function transcodeViaCanvas(
 
   recorder.start(1000);
 
-  // Start playback (still silent)
-  try {
-    await UI.xVideo.play();
-  } catch (error) {
-    console.error("Video playback failed during conversion:", error);
-    recorder.stop();
-    URL.revokeObjectURL(inputUrl);
-    throw new Error("Video playback failed during conversion.");
-  }
-
+  // Video is already playing (we started it earlier for audio capture)
   rafId = requestAnimationFrame(drawFrame);
 
   await new Promise((resolve) => {
@@ -1298,6 +1334,15 @@ async function transcodeViaCanvas(
   } catch (error) {
     console.error("Error closing AudioContext during cleanup:", error);
   }
+  try {
+    // Stop any captureStream tracks if present (best-effort)
+    if (audioTrack && audioTrack.stop) audioTrack.stop();
+  } catch (_) {}
+
+  // Stop playback
+  try {
+    UI.xVideo.pause();
+  } catch (_) {}
 
   return new Blob(outChunks, { type: outType });
 }
@@ -1393,9 +1438,7 @@ async function compressIteratively(inputBlob) {
 
     // If still under the actual 50MB target, done.
     if (outBlob.size <= targetBytes) {
-      logProgress(
-        `✅ MP4 output produced under limit (≤ ${fmtMB(targetBytes)}).`,
-      );
+      logProgress(`✅ MP4 output produced under limit (≤ ${fmtMB(targetBytes)}).`);
       setText(UI.progressText, "Done");
       if (UI.convBarFill) UI.convBarFill.style.width = "100%";
       setText(UI.convPctLabel, "100%");
@@ -1411,9 +1454,7 @@ async function compressIteratively(inputBlob) {
   // Normal iterative compression (also used for big files, or when MP4 forced output is too big)
   const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
 
-  const [minResStr, minKbpsStr] = (
-    UI.minQualitySelect?.value || "640x360|250"
-  ).split("|");
+  const [minResStr, minKbpsStr] = (UI.minQualitySelect?.value || "640x360|250").split("|");
   const minRes = parseWH(minResStr);
   const minVideoBps = Number(minKbpsStr) * 1000;
 
@@ -1437,10 +1478,7 @@ async function compressIteratively(inputBlob) {
   let attempt = 0;
   const MAX_ATTEMPTS = 10;
 
-  let { videoBps, audioBps } = computeBitratesForTarget(
-    durationSec,
-    targetBytes,
-  );
+  let { videoBps, audioBps } = computeBitratesForTarget(durationSec, targetBytes);
   videoBps = Math.min(videoBps, 2_000_000);
 
   while (attempt < MAX_ATTEMPTS) {
@@ -1458,9 +1496,7 @@ async function compressIteratively(inputBlob) {
     convLastProgressUpdatePerf = 0;
 
     logProgress(`\n--- Attempt ${attempt} ---`);
-    logProgress(
-      `Try ${outW}x${outH} @ ~${Math.floor(videoBps / 1000)} kbps video`,
-    );
+    logProgress(`Try ${outW}x${outH} @ ~${Math.floor(videoBps / 1000)} kbps video`);
 
     let outBlob;
     try {
@@ -1480,17 +1516,12 @@ async function compressIteratively(inputBlob) {
       outW = next.w;
       outH = next.h;
 
-      ({ videoBps, audioBps } = computeBitratesForTarget(
-        durationSec,
-        targetBytes,
-      ));
+      ({ videoBps, audioBps } = computeBitratesForTarget(durationSec, targetBytes));
       videoBps = Math.max(minVideoBps, Math.min(videoBps, 1_200_000));
       continue;
     }
 
-    logProgress(
-      `Output: ${fmtMB(outBlob.size)} | mime: ${outBlob.type || "unknown"}`,
-    );
+    logProgress(`Output: ${fmtMB(outBlob.size)} | mime: ${outBlob.type || "unknown"}`);
 
     if (outBlob.size <= targetBytes) {
       logProgress(`✅ Success under limit (≤ ${fmtMB(targetBytes)}).`);
@@ -1517,20 +1548,17 @@ async function compressIteratively(inputBlob) {
         );
       }
 
-      ({ videoBps, audioBps } = computeBitratesForTarget(
-        durationSec,
-        targetBytes,
-      ));
+      ({ videoBps, audioBps } = computeBitratesForTarget(durationSec, targetBytes));
       videoBps = Math.max(minVideoBps, Math.min(videoBps, 1_200_000));
       logProgress(
-        `Bitrate floor reached → downscaling to ${outW}x${outH}, reset bitrate ~${Math.floor(videoBps / 1000)} kbps`,
+        `Bitrate floor reached → downscaling to ${outW}x${outH}, reset bitrate ~${Math.floor(
+          videoBps / 1000,
+        )} kbps`,
       );
     }
   }
 
-  throw new Error(
-    "Max attempts reached; could not compress under 50MB on this device.",
-  );
+  throw new Error("Max attempts reached; could not compress under 50MB on this device.");
 }
 
 /********************************************************************
@@ -1546,9 +1574,7 @@ UI.convertBtn?.addEventListener("click", async () => {
   try {
     clearResult();
     showProgress(true);
-    logProgress(
-      `Starting conversion… target ≤ ${fmtMB(MAX_BYTES - SAFETY_BYTES)}`,
-    );
+    logProgress(`Starting conversion… target ≤ ${fmtMB(MAX_BYTES - SAFETY_BYTES)}`);
 
     const out = await compressIteratively(sourceBlob);
 
@@ -1587,9 +1613,7 @@ UI.enableCameraBtn?.addEventListener("click", async () => {
       return;
     }
     if (!isSecureEnoughForCamera()) {
-      alert(
-        "On iPhone, camera requires HTTPS. Hosting this page on HTTPS is the best fix.",
-      );
+      alert("On iPhone, camera requires HTTPS. Hosting this page on HTTPS is the best fix.");
     }
 
     lsSet(LS_KEYS.AUTO_ENABLE_CAMERA, true);
@@ -1597,11 +1621,7 @@ UI.enableCameraBtn?.addEventListener("click", async () => {
     await startPreview();
     await populateCameras();
 
-    if (
-      UI.cameraSelect &&
-      !UI.cameraSelect.value &&
-      UI.cameraSelect.options[0]
-    ) {
+    if (UI.cameraSelect && !UI.cameraSelect.value && UI.cameraSelect.options[0]) {
       UI.cameraSelect.value = UI.cameraSelect.options[0].value;
       lsSet(LS_KEYS.CAMERA_ID, UI.cameraSelect.value);
     }
@@ -1613,9 +1633,7 @@ UI.enableCameraBtn?.addEventListener("click", async () => {
     setText(UI.cameraStateLabel, "Enabled");
   } catch (e) {
     console.error(e);
-    alert(
-      "Could not start camera. If you opened from Files on iPhone, host it on HTTPS.",
-    );
+    alert("Could not start camera. If you opened from Files on iPhone, host it on HTTPS.");
   }
 });
 
@@ -1664,20 +1682,12 @@ UI.minQualitySelect?.addEventListener("change", () => {
  * Combo tab wiring (Video + Plot)
  ********************************************************************/
 function wireComboButtons() {
-  UI.comboEnableCameraBtn?.addEventListener("click", () =>
-    UI.enableCameraBtn?.click(),
-  );
-  UI.comboRecordToggleBtn?.addEventListener("click", () =>
-    UI.recordToggleBtn?.click(),
-  );
+  UI.comboEnableCameraBtn?.addEventListener("click", () => UI.enableCameraBtn?.click());
+  UI.comboRecordToggleBtn?.addEventListener("click", () => UI.recordToggleBtn?.click());
   UI.comboPauseBtn?.addEventListener("click", () => UI.pauseBtn?.click());
 
-  UI.comboStartPathBtn?.addEventListener("click", () =>
-    MAP.startTrackBtn?.click(),
-  );
-  UI.comboDropPointBtn?.addEventListener("click", () =>
-    MAP.dropPointBtn?.click(),
-  );
+  UI.comboStartPathBtn?.addEventListener("click", () => MAP.startTrackBtn?.click());
+  UI.comboDropPointBtn?.addEventListener("click", () => MAP.dropPointBtn?.click());
   UI.comboCenterBtn?.addEventListener("click", () => MAP.mapCenterBtn?.click());
 }
 
@@ -1697,8 +1707,7 @@ function syncComboUI() {
   }
 
   if (UI.comboStartPathBtn && MAP.startTrackBtn) {
-    UI.comboStartPathBtn.textContent =
-      MAP.startTrackBtn.textContent || "▶️ Start path";
+    UI.comboStartPathBtn.textContent = MAP.startTrackBtn.textContent || "▶️ Start path";
     UI.comboStartPathBtn.disabled = !!MAP.startTrackBtn.disabled;
     UI.comboStartPathBtn.className = MAP.startTrackBtn.className;
   }
@@ -1734,12 +1743,10 @@ function restoreSettingsFromStorage() {
   if (UI.fpsSelect && !UI.fpsSelect.value) UI.fpsSelect.value = "30";
 
   const savedPrevRes = lsGet(LS_KEYS.PREVIEW_RES, "");
-  if (savedPrevRes && UI.previewResSelect)
-    UI.previewResSelect.value = savedPrevRes;
+  if (savedPrevRes && UI.previewResSelect) UI.previewResSelect.value = savedPrevRes;
 
   const savedConvRes = lsGet(LS_KEYS.CONVERT_RES, "");
-  if (savedConvRes && UI.convertResSelect)
-    UI.convertResSelect.value = savedConvRes;
+  if (savedConvRes && UI.convertResSelect) UI.convertResSelect.value = savedConvRes;
 
   const savedBitrate = lsGet(LS_KEYS.BITRATE_KBPS, "");
   if (savedBitrate && UI.recordBitrate) UI.recordBitrate.value = savedBitrate;
