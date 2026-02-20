@@ -113,6 +113,7 @@
   const comboEditBtn = document.getElementById("comboEditBtn");
 
   const editStylePanel = document.getElementById("editStylePanel");
+  const closeEditStyleBtn = document.getElementById("closeEditStyleBtn");
   const dpSizeRange = document.getElementById("dpSizeRange");
   const dpSizeLabel = document.getElementById("dpSizeLabel");
   const dpFontRange = document.getElementById("dpFontRange");
@@ -234,7 +235,6 @@
 
     if (miniPathLine) miniPathLine.setLatLngs(pathLatLngs);
 
-    // rebuild minimap dropped markers (simple dots, not numbered, to keep it lightweight)
     if (miniDropped.length) {
       for (const m of miniDropped) {
         try {
@@ -377,10 +377,13 @@
         if (editMode) exitEditMode();
         else enterEditMode();
       });
+
+    // ✅ Close button inside Edit Style panel
+    if (closeEditStyleBtn)
+      closeEditStyleBtn.addEventListener("click", () => exitEditMode());
   }
 
   function wireStyleControls() {
-    // Default values (keep in sync with index.html)
     if (dpSizeRange) styleState.dotSize = Number(dpSizeRange.value || 28);
     if (dpFontRange) styleState.fontSize = Number(dpFontRange.value || 14);
 
@@ -470,7 +473,6 @@
         return;
       }
 
-      // You can't edit while tracking
       if (editMode) exitEditMode(true);
 
       tracking = true;
@@ -530,23 +532,21 @@
   function dropPoint(lat, lng) {
     if (!map) return;
 
-    const n = droppedPoints.length + 1; // default number
+    const n = droppedPoints.length + 1;
     const icon = buildDropPointIcon(n);
 
     const marker = L.marker([lat, lng], {
       icon,
-      draggable: false, // Leaflet.draw handles editing; we keep this false
+      draggable: false,
       keyboard: false,
     }).addTo(map);
 
-    // Put markers into editable group so Leaflet.draw can edit them
     if (editGroup) editGroup.addLayer(marker);
 
     const id = nextDropId++;
     const item = { id, n, lat, lng, marker, ts: Date.now() };
     droppedPoints.push(item);
 
-    // Tap marker (in edit mode) => renumber
     marker.on("click", () => {
       if (!editMode) return;
       promptRenumber(item);
@@ -558,12 +558,11 @@
   function promptRenumber(item) {
     const current = item.n ?? "";
     const v = prompt("Point number:", String(current));
-    if (v == null) return; // cancelled
+    if (v == null) return;
 
     const trimmed = String(v).trim();
     if (!trimmed) return;
 
-    // allow 1..9999 or any numeric string; keep it simple
     const num = Number(trimmed);
     if (!Number.isFinite(num) || num <= 0) {
       alert("Please enter a positive number.");
@@ -626,7 +625,7 @@
     commitEditsToState();
 
     if (!silent) {
-      // no toast system here — minimal
+      // no toast system
     }
 
     updateMapUI();
@@ -634,7 +633,6 @@
   }
 
   function commitEditsToState() {
-    // Update droppedPoints from their markers
     for (const p of droppedPoints) {
       try {
         const ll = p.marker.getLatLng();
@@ -643,7 +641,6 @@
       } catch {}
     }
 
-    // Update pathLatLngs from the polyline
     if (pathLine) {
       try {
         const ll = pathLine.getLatLngs() || [];
@@ -719,6 +716,9 @@
     const hasGPS = !!youMarker;
     const hasAny = droppedPoints.length > 0 || pathLatLngs.length > 1;
 
+    // ✅ lets CSS keep buttons above the panel
+    document.body.classList.toggle("mapEditMode", editMode);
+
     if (startTrackBtn) {
       startTrackBtn.textContent = tracking ? "⏹️ Stop path" : "▶️ Start path";
       startTrackBtn.disabled = editMode;
@@ -754,7 +754,6 @@
       comboEditBtn.textContent = editMode ? "✅ Done" : "✏️ Edit";
     }
 
-    // Edit style panel visibility
     if (editStylePanel) editStylePanel.style.display = editMode ? "" : "none";
 
     updateMapReadout();
