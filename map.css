@@ -99,7 +99,7 @@
   bottom: calc(10px + env(safe-area-inset-bottom));
   display: flex;
   gap: 8px;
-  z-index: 500;
+  z-index: 650; /* ✅ keep above edit style panel */
   pointer-events: auto;
   flex-wrap: wrap;
 }
@@ -107,6 +107,11 @@
 .mapActionBar .btn {
   flex: 1 1 auto;
   min-width: 140px;
+}
+
+/* When editing, also keep the side controls above */
+body.mapEditMode .mapControls {
+  z-index: 650;
 }
 
 /* Readout */
@@ -313,12 +318,10 @@
 /* ✅ Numbered drop points       */
 /* ----------------------------- */
 
-/* Leaflet divIcon wrapper class */
 .dropPointIcon {
-  /* no visual here; the inner .dot handles it */
+  /* wrapper only */
 }
 
-/* The dot (size + font size are set inline by JS for live updates) */
 .dropPointIcon .dot {
   display: grid;
   place-items: center;
@@ -337,7 +340,6 @@
 /* ✅ Editing UX (Leaflet.draw)  */
 /* ----------------------------- */
 
-/* Bigger edit handles for touch */
 .leaflet-editing-icon {
   width: 18px !important;
   height: 18px !important;
@@ -352,7 +354,6 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35) !important;
 }
 
-/* We are NOT using the Leaflet.draw toolbar UI; hide if it appears */
 .leaflet-draw {
   display: none !important;
 }
@@ -364,8 +365,11 @@
 .editStylePanel {
   position: absolute;
   left: 10px;
-  bottom: calc(68px + env(safe-area-inset-bottom));
-  z-index: 600;
+
+  /* ✅ keep above map edge, but below the action bar buttons */
+  bottom: calc(10px + env(safe-area-inset-bottom) + 90px);
+
+  z-index: 600; /* ✅ below action bar (650) */
   width: min(320px, calc(100% - 20px));
   padding: 10px 10px;
   border-radius: 14px;
@@ -375,19 +379,23 @@
   pointer-events: auto;
 }
 
+.editStyleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
 .editStyleTitle {
   font-weight: 900;
-  margin-bottom: 8px;
 }
 
-.editStyleRow {
-  display: grid;
-  grid-template-columns: 84px 1fr 44px;
-  gap: 8px;
-  align-items: center;
-  margin: 8px 0;
-}
-
-.editStyleRow input[type="range"] {
-  width: 100%;
-}
+.editStyleCloseBtn {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  color: var(--text);
+  border-radius: 12px;
+  height: 34px;
+  min-width: 44px;
+  padding:
