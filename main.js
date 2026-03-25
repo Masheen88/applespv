@@ -77,6 +77,13 @@ const UI = {
 
     "resultArea",
 
+    // Video workspace shell
+    "videoTabPanel",
+    "videoModeHint",
+    "uploadPreview",
+    "uploadEmptyState",
+    "uploadPickedMeta",
+
     // Settings
     "settingsBtn",
     "themeBtn",
@@ -204,19 +211,6 @@ function lsGetBool(key, fallback) {
 }
 
 /********************************************************************
- * Theme
- ********************************************************************/
-function applyTheme(theme) {
-  document.documentElement.dataset("data-theme", theme);
-  localStorage.setItem(LS_KEYS.THEME, theme);
-}
-applyTheme(localStorage.getItem(LS_KEYS.THEME) || "dark");
-UI.themeBtn?.addEventListener("click", () => {
-  const cur = document.documentElement.dataset("data-theme") || "dark";
-  applyTheme(cur === "dark" ? "light" : "dark");
-});
-
-/********************************************************************
  * State
  ********************************************************************/
 let mode = "record";
@@ -248,6 +242,7 @@ let preferredOutputMime = "";
 let lastResultBlob = null;
 let lastResultLabel = "";
 let lastResultUrl = "";
+let uploadPreviewUrl = "";
 
 /********************************************************************
  * Conversion progress state (NEW)
@@ -385,6 +380,7 @@ function setMode(next) {
   showInline(UI.recordPanel, isRecord);
   showInline(UI.uploadPanel, !isRecord);
 
+  syncVideoWorkspaceMode();
   updateConvertButtonState();
 }
 
@@ -460,6 +456,94 @@ function clearResult() {
     UI.resultArea,
     `<div class="note">Converted output will appear here with Save/Share.</div>`,
   );
+}
+
+function revokeUploadPreviewUrl() {
+  if (!uploadPreviewUrl) return;
+  try {
+    URL.revokeObjectURL(uploadPreviewUrl);
+  } catch (_) {}
+  uploadPreviewUrl = "";
+}
+
+function syncVideoWorkspaceMode() {
+  const isRecord = mode === "record";
+
+  if (UI.videoTabPanel) UI.videoTabPanel.dataset.mode = mode;
+
+  setText(
+    UI.videoModeHint,
+    isRecord
+      ? "Live preview stays large so it is easier to frame shots."
+      : "Upload mode focuses the stage on the selected file instead of the live camera.",
+  );
+
+  if (isRecord) {
+    show(UI.uploadEmptyState, false);
+    show(UI.uploadPreview, false);
+    if (UI.uploadPreview) UI.uploadPreview.hidden = true;
+    if (UI.uploadEmptyState) UI.uploadEmptyState.hidden = true;
+
+    setText(
+      UI.uploadPickedMeta,
+      sourceBlob && sourceLabel === "Uploaded"
+        ? `Uploaded source ready • ${fmtMB(sourceBlob.size)} • ${sourceBlob.type || "video/*"}`
+        : "Live camera preview. Enable the camera to frame and record.",
+    );
+    return;
+  }
+
+  const hasUploadSource = !!(sourceBlob && sourceLabel === "Uploaded");
+  if (UI.uploadPreview) UI.uploadPreview.hidden = !hasUploadSource;
+  if (UI.uploadEmptyState) UI.uploadEmptyState.hidden = hasUploadSource;
+
+  show(UI.uploadPreview, hasUploadSource);
+  show(UI.uploadEmptyState, !hasUploadSource);
+
+  setText(
+    UI.uploadPickedMeta,
+    hasUploadSource
+      ? `Uploaded source ready • ${fmtMB(sourceBlob.size)} • ${sourceBlob.type || "video/*"}`
+      : "Choose a file to preview it here before converting.",
+  );
+}
+
+function syncUploadPreview(file) {
+  revokeUploadPreviewUrl();
+
+  if (!file) {
+    if (UI.uploadPreview) {
+      UI.uploadPreview.pause?.();
+      UI.uploadPreview.removeAttribute("src");
+      UI.uploadPreview.load?.();
+      UI.uploadPreview.hidden = true;
+    }
+
+    if (UI.uploadEmptyState) UI.uploadEmptyState.hidden = false;
+
+    setText(
+      UI.uploadPickedMeta,
+      "Choose a file to preview it here before converting.",
+    );
+    syncVideoWorkspaceMode();
+    return;
+  }
+
+  uploadPreviewUrl = URL.createObjectURL(file);
+
+  if (UI.uploadPreview) {
+    UI.uploadPreview.src = uploadPreviewUrl;
+    UI.uploadPreview.hidden = false;
+  }
+
+  if (UI.uploadEmptyState) UI.uploadEmptyState.hidden = true;
+
+  setText(
+    UI.uploadPickedMeta,
+    `${file.name || "Selected file"} • ${fmtMB(file.size)} • ${file.type || "video/*"}`,
+  );
+
+  syncVideoWorkspaceMode();
 }
 
 /********************************************************************
@@ -975,6 +1059,7 @@ function stopStream() {
   } catch (_) {}
 
   setText(UI.cameraStateLabel, "Not enabled");
+  syncVideoWorkspaceMode();
 }
 
 async function getDevices() {
@@ -1092,6 +1177,7 @@ async function startPreview() {
   }
 
   updateRecUI();
+  syncVideoWorkspaceMode();
 }
 
 UI.cameraSelect?.addEventListener("change", async () => {
@@ -1225,6 +1311,7 @@ async function startRecording() {
 
     sourceBlob = blob;
     sourceLabel = "Recorded";
+    syncVideoWorkspaceMode();
     updateConvertButtonState();
 
     renderResult(blob, "Raw (recorded)");
@@ -1307,7 +1394,10 @@ UI.fileInput?.addEventListener("change", async () => {
   const f = UI.fileInput.files && UI.fileInput.files[0];
   if (!f) {
     sourceBlob = null;
+    sourceLabel = "";
+    syncUploadPreview(null);
     updateConvertButtonState();
+    clearResult();
     return;
   }
 
@@ -1316,6 +1406,7 @@ UI.fileInput?.addEventListener("change", async () => {
   cancelRequested = false;
   setEnabled(UI.cancelConvertBtn, false);
 
+  syncUploadPreview(f);
   updateConvertButtonState();
   clearResult();
 
@@ -2097,6 +2188,7 @@ function init() {
   updateOutputBadges();
 
   setMode(mode);
+  syncUploadPreview(null);
   updateRecUI();
   clearResult();
 

@@ -20,7 +20,7 @@
       crossorigin=""
     />
 
-    <!-- ✅ Leaflet.draw CSS (for path/marker editing) -->
+    <!-- Leaflet.draw CSS (for path/marker editing) -->
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"
@@ -28,31 +28,31 @@
     />
   </head>
   <body>
-    <header id="appHeader">
-      <div class="row">
-        <h1>50MB Video Recorder / Converter</h1>
-        <div style="gap: 8px; position: absolute; right: 0; top: 2px">
+    <header id="appHeader" class="appHeaderShell">
+      <div class="appHeaderBar">
+        <div class="brandBlock">
+          <p class="eyebrow">Mobile-friendly capture workflow</p>
+          <h1>50MB Video Recorder / Converter</h1>
+          <p class="subtleHeaderCopy">
+            Record, upload, convert, and optionally plot a path without losing
+            the view of the video.
+          </p>
+        </div>
+
+        <div class="headerActions">
           <button
             id="themeBtn"
-            style="
-              background-color: transparent;
-              border: none;
-              cursor: pointer;
-              font-size: 18px;
-            "
+            class="iconBtn"
             type="button"
+            aria-label="Toggle theme"
           >
             🌓
           </button>
           <button
             id="settingsBtn"
-            style="
-              background-color: transparent;
-              border: none;
-              cursor: pointer;
-              font-size: 18px;
-            "
+            class="iconBtn"
             type="button"
+            aria-label="Open settings"
           >
             ⚙️
           </button>
@@ -63,10 +63,10 @@
       <div class="topTabs" role="tablist" aria-label="app tabs">
         <button
           id="appTabVideo"
-          class="btn topTab"
+          class="btn topTab active"
           type="button"
           role="tab"
-          aria-selected="false"
+          aria-selected="true"
         >
           🎥 Video Only
         </button>
@@ -93,11 +93,20 @@
 
     <main id="appMain">
       <!-- ========================= -->
-      <!-- VIDEO TAB (existing UI)   -->
+      <!-- VIDEO TAB                -->
       <!-- ========================= -->
-      <section id="videoTabPanel" class="card">
-        <h2>
-          <div class="tabs" role="tablist" aria-label="mode tabs">
+      <section
+        id="videoTabPanel"
+        class="card videoCardShell"
+        data-mode="record"
+      >
+        <div class="panelHeader panelHeaderStack">
+          <div>
+            <p class="eyebrow">Capture workspace</p>
+            <h2>Video</h2>
+          </div>
+
+          <div class="tabs modeTabs" role="tablist" aria-label="mode tabs">
             <button
               id="tabRecord"
               class="tab active"
@@ -117,167 +126,256 @@
               📁 Upload
             </button>
           </div>
-        </h2>
+        </div>
 
-        <div class="content">
-          <div id="secureBanner" class="banner" style="display: none">
-            <div class="bannerTitle warn">iPhone camera needs HTTPS</div>
-            <p>
-              If you opened this from <span class="mono">Files</span> (file://),
-              iPhone will usually block the camera. Host this page on HTTPS and
-              open it in Safari.
-            </p>
-          </div>
-
-          <div id="mp4Banner" class="banner" style="display: none">
-            <div class="bannerTitle warn">MP4 encoding not supported here</div>
-            <p>
-              This browser/device can’t encode MP4 via MediaRecorder. Output
-              will be WebM, which GorillaDesk won’t accept. Use iPhone Safari
-              over HTTPS (often supports MP4), or use FFmpeg/server conversion.
-            </p>
-          </div>
-
-          <!-- Concise camera enable group -->
-          <div class="groupCard" id="cameraGroup">
-            <div class="groupTop">
-              <div class="groupTitle">Camera</div>
-              <div class="groupSub mono" id="cameraStateLabel">Not enabled</div>
-            </div>
-
-            <div class="actions tight">
-              <button id="enableCameraBtn" class="btn" type="button">
-                📷 Enable
-              </button>
-              <button id="restartPreviewBtn" class="btn" type="button" disabled>
-                🔄 Restart
-              </button>
-            </div>
-
-            <div class="note" style="margin-top: 8px">
-              Tip: iPhone Safari requires HTTPS for camera access.
-            </div>
-          </div>
-
-          <!-- Record Panel -->
-          <div id="recordPanel" style="margin-top: 12px">
-            <video id="preview" playsinline autoplay muted></video>
-
-            <!-- Recording group -->
-            <div class="groupCard" id="recordingGroup">
-              <div class="groupTop">
-                <div class="groupTitle">Recording</div>
-                <div class="groupSub mono" id="recStateLabel">Idle</div>
-              </div>
-
-              <div class="status compact" aria-live="polite">
-                <span class="pill"
-                  >Size:
-                  <span class="mono" id="recSizeLabel">0.0 MB</span></span
-                >
-                <span class="pill"
-                  >Time: <span class="mono" id="recTimeLabel">0s</span></span
-                >
-                <span class="pill"
-                  >Torch: <span class="mono" id="torchLabel">n/a</span></span
-                >
-                <span class="pill"
-                  >Zoom: <span class="mono" id="zoomLabel">n/a</span></span
-                >
-              </div>
-
-              <div
-                class="bar"
-                title="Recorded size vs 50MB (can exceed while recording)"
+        <div class="content videoWorkspace">
+          <div class="workspaceMainCol">
+            <div class="heroMetrics" aria-live="polite">
+              <span class="pill"
+                >Limit: <span class="mono" id="limitLabel">50.0 MB</span></span
               >
-                <div id="recBarFill"></div>
+              <span class="pill"
+                >Preferred output:
+                <span class="mono" id="preferredMimeLabel">—</span></span
+              >
+              <span class="pill"
+                >GorillaDesk:
+                <span class="mono" id="gdCompatLabel">—</span></span
+              >
+            </div>
+
+            <div id="secureBanner" class="banner" style="display: none">
+              <div class="bannerTitle warn">iPhone camera needs HTTPS</div>
+              <p>
+                If you opened this from
+                <span class="mono">Files</span> (file://), iPhone will usually
+                block the camera. Host this page on HTTPS and open it in Safari.
+              </p>
+            </div>
+
+            <div id="mp4Banner" class="banner" style="display: none">
+              <div class="bannerTitle warn">
+                MP4 encoding not supported here
+              </div>
+              <p>
+                This browser/device can’t encode MP4 via MediaRecorder. Output
+                will be WebM, which GorillaDesk won’t accept. Use iPhone Safari
+                over HTTPS (often supports MP4), or use FFmpeg/server
+                conversion.
+              </p>
+            </div>
+
+            <section class="heroStageCard groupCard">
+              <div class="groupTop heroStageTop">
+                <div>
+                  <div class="groupTitle">Preview</div>
+                  <div class="groupSub mono" id="cameraStateLabel">
+                    Not enabled
+                  </div>
+                </div>
+                <div class="heroHint note" id="videoModeHint">
+                  Live preview stays large so it is easier to frame shots.
+                </div>
+              </div>
+
+              <div class="videoStage" id="videoStage">
+                <video id="preview" playsinline autoplay muted></video>
+
+                <div id="uploadEmptyState" class="uploadEmptyState" hidden>
+                  <div class="uploadEmptyStateInner">
+                    <div class="uploadIcon">📁</div>
+                    <div class="uploadEmptyTitle">Upload a source video</div>
+                    <div class="uploadEmptyCopy">
+                      Choose an existing MP4, MOV, or other video file to
+                      preview and convert to 50MB or less.
+                    </div>
+                  </div>
+                </div>
+
+                <video
+                  id="uploadPreview"
+                  class="uploadPreview"
+                  controls
+                  playsinline
+                  hidden
+                ></video>
+
+                <div class="videoStageOverlay">
+                  <div class="overlayChipRow">
+                    <span class="pill"
+                      >Size:
+                      <span class="mono" id="recSizeLabel">0.0 MB</span></span
+                    >
+                    <span class="pill"
+                      >Time:
+                      <span class="mono" id="recTimeLabel">0s</span></span
+                    >
+                    <span class="pill"
+                      >Torch:
+                      <span class="mono" id="torchLabel">n/a</span></span
+                    >
+                    <span class="pill"
+                      >Zoom: <span class="mono" id="zoomLabel">n/a</span></span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <div class="stageMetaRow">
+                <div class="note" id="uploadPickedMeta">
+                  Nothing selected yet.
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="workspaceSideCol">
+            <!-- Concise camera enable group -->
+            <div class="groupCard" id="cameraGroup">
+              <div class="groupTop">
+                <div class="groupTitle">Camera</div>
+                <div class="groupSub mono">Live capture controls</div>
               </div>
 
               <div class="actions tight">
-                <button id="recordToggleBtn" class="btn" type="button" disabled>
-                  ⏺️ Record
+                <button id="enableCameraBtn" class="btn" type="button">
+                  📷 Enable
                 </button>
-                <button id="pauseBtn" class="btn" type="button" disabled>
-                  ⏸️ Pause
-                </button>
-                <button id="resetBtn" class="btn" type="button" disabled>
-                  🧹 Reset
-                </button>
-              </div>
-
-              <div class="note">
-                Record as long as you want. After you stop, Convert can compress
-                to ≤ 50MB.
-              </div>
-            </div>
-          </div>
-
-          <!-- Upload Panel -->
-          <div id="uploadPanel" style="display: none; margin-top: 12px">
-            <div class="groupCard">
-              <div class="groupTop">
-                <div class="groupTitle">Upload</div>
-                <div class="groupSub mono">Pick a video file</div>
-              </div>
-              <label for="fileInput"
-                >Choose a video (MP4/MOV recommended)</label
-              >
-              <input id="fileInput" type="file" accept="video/*" />
-              <div class="note">
-                Pick an existing video and convert it to ≤ 50MB.
-              </div>
-            </div>
-          </div>
-
-          <hr
-            style="
-              border: none;
-              border-top: 1px solid var(--border);
-              margin: 14px 0;
-            "
-          />
-
-          <!-- Convert group -->
-          <div class="groupCard" id="convertGroup" style="margin-top: 12px">
-            <div class="groupTop">
-              <div class="groupTitle">Convert & Save</div>
-              <div class="groupSub mono" id="convertStateLabel">Ready</div>
-            </div>
-
-            <div class="actions tight">
-              <button id="convertBtn" class="btn" type="button" disabled>
-                🧪 Convert ≤ 50MB
-              </button>
-              <button id="cancelConvertBtn" class="btn" type="button" disabled>
-                ✋ Cancel
-              </button>
-            </div>
-
-            <div id="progressBox" class="progressBox">
-              <div class="progressTop">
-                <div>Attempt: <span class="mono" id="attemptText">—</span></div>
-                <div>Status: <span class="mono" id="progressText">—</span></div>
-              </div>
-
-              <div class="status compact" style="margin-top: 8px">
-                <span class="pill"
-                  >Progress: <span class="mono" id="convPctLabel">—</span></span
+                <button
+                  id="restartPreviewBtn"
+                  class="btn"
+                  type="button"
+                  disabled
                 >
-              </div>
-              <div
-                class="bar"
-                title="Conversion progress for the current attempt"
-                style="margin-top: 8px"
-              >
-                <div id="convBarFill"></div>
+                  🔄 Restart
+                </button>
               </div>
 
-              <div class="log mono" id="progressLog"></div>
+              <div class="note" style="margin-top: 8px">
+                Tip: iPhone Safari requires HTTPS for camera access.
+              </div>
             </div>
 
-            <div id="resultArea" style="margin-top: 12px">
-              <div class="note">
-                Converted output will appear here with Save/Share.
+            <!-- Record Panel -->
+            <div id="recordPanel" class="stackSection">
+              <div class="groupCard" id="recordingGroup">
+                <div class="groupTop">
+                  <div class="groupTitle">Recording</div>
+                  <div class="groupSub mono" id="recStateLabel">Idle</div>
+                </div>
+
+                <div
+                  class="bar"
+                  title="Recorded size vs 50MB (can exceed while recording)"
+                >
+                  <div id="recBarFill"></div>
+                </div>
+
+                <div class="actions tight recordActionsGrid">
+                  <button
+                    id="recordToggleBtn"
+                    class="btn primary"
+                    type="button"
+                    disabled
+                  >
+                    ⏺️ Record
+                  </button>
+                  <button id="pauseBtn" class="btn" type="button" disabled>
+                    ⏸️ Pause
+                  </button>
+                  <button id="resetBtn" class="btn" type="button" disabled>
+                    🧹 Reset
+                  </button>
+                </div>
+
+                <div class="note">
+                  Record as long as you want. After you stop, Convert can
+                  compress to 50MB or less.
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload Panel -->
+            <div id="uploadPanel" class="stackSection" style="display: none">
+              <div class="groupCard uploadPanelCard">
+                <div class="groupTop">
+                  <div class="groupTitle">Upload</div>
+                  <div class="groupSub mono">Pick a source file</div>
+                </div>
+
+                <label for="fileInput"
+                  >Choose a video (MP4/MOV recommended)</label
+                >
+                <input id="fileInput" type="file" accept="video/*" />
+
+                <div class="note">
+                  Upload mode uses a file preview instead of the live camera so
+                  the screen can focus on the selected video.
+                </div>
+              </div>
+            </div>
+
+            <!-- Convert group -->
+            <div class="groupCard" id="convertGroup">
+              <div class="groupTop">
+                <div class="groupTitle">Convert &amp; Save</div>
+                <div class="groupSub mono" id="convertStateLabel">Ready</div>
+              </div>
+
+              <div class="actions tight">
+                <button
+                  id="convertBtn"
+                  class="btn primary"
+                  type="button"
+                  disabled
+                >
+                  🧪 Convert ≤ 50MB
+                </button>
+                <button
+                  id="cancelConvertBtn"
+                  class="btn"
+                  type="button"
+                  disabled
+                >
+                  ✋ Cancel
+                </button>
+              </div>
+
+              <div id="progressBox" class="progressBox">
+                <div class="progressTop">
+                  <div>
+                    Attempt: <span class="mono" id="attemptText">—</span>
+                  </div>
+                  <div>
+                    Status: <span class="mono" id="progressText">—</span>
+                  </div>
+                </div>
+
+                <div class="status compact" style="margin-top: 8px">
+                  <span class="pill"
+                    >Progress:
+                    <span class="mono" id="convPctLabel">—</span></span
+                  >
+                  <span class="pill"
+                    >ETA: <span class="mono" id="convEtaLabel">—</span></span
+                  >
+                </div>
+
+                <div
+                  class="bar"
+                  title="Conversion progress for the current attempt"
+                  style="margin-top: 8px"
+                >
+                  <div id="convBarFill"></div>
+                </div>
+
+                <div class="log mono" id="progressLog"></div>
+              </div>
+
+              <div id="resultArea" class="resultArea">
+                <div class="note">
+                  Converted output will appear here with Save and Preview.
+                </div>
               </div>
             </div>
           </div>
@@ -307,6 +405,9 @@
 
             <div class="miniMapWrap" aria-label="minimap">
               <div id="minimap" class="miniMap"></div>
+              <div id="miniReadout" class="miniReadout mono">
+                GPS: — • Points: 0 • Path: 0
+              </div>
             </div>
 
             <div class="comboDock" aria-label="combo controls">
@@ -351,6 +452,14 @@
                     📍 Drop point
                   </button>
                   <button
+                    id="comboCenterBtn"
+                    class="btn"
+                    type="button"
+                    disabled
+                  >
+                    ◎ Center
+                  </button>
+                  <button
                     id="comboEditBtn"
                     class="btn"
                     type="button"
@@ -365,7 +474,7 @@
                 </div>
 
                 <div class="comboDockHint note">
-                  Tip: Start/stop the path. After you stop, tap Edit to move
+                  Tip: Start or stop the path. After you stop, tap Edit to move
                   points and tweak the path.
                 </div>
               </div>
@@ -378,22 +487,28 @@
       <!-- MAP TAB                  -->
       <!-- ========================= -->
       <section id="mapTabPanel" class="card" style="display: none">
-        <h2>
-          <span>Map / Plot</span>
+        <div class="panelHeader">
+          <div>
+            <p class="eyebrow">Plot workspace</p>
+            <h2>Map / Plot</h2>
+          </div>
           <span class="pill">North-up • Satellite • GPS</span>
-        </h2>
+        </div>
 
         <div class="content mapContent">
           <div id="mapBanner" class="banner" style="display: none">
             <div class="bannerTitle warn">Location permission required</div>
             <p>
-              Enable location access to plot points and track your path. (Works
-              best over HTTPS.)
+              Enable location access to plot points and track your path. Works
+              best over HTTPS.
             </p>
           </div>
 
           <div class="mapFrame">
             <div id="map" class="map"></div>
+            <div id="mapReadout" class="mapReadout mono">
+              GPS: — • Points: 0 • Path: 0
+            </div>
 
             <div class="mapControls" aria-label="map controls">
               <div>
@@ -434,7 +549,6 @@
                 🔴 Drop point
               </button>
 
-              <!-- ✅ Edit / Done buttons -->
               <button
                 id="editMapBtn"
                 class="btn"
@@ -466,7 +580,6 @@
               </button>
             </div>
 
-            <!-- ✅ Edit Style Panel -->
             <div
               id="editStylePanel"
               class="editStylePanel"
@@ -518,8 +631,8 @@
           </div>
 
           <div class="note">
-            Tip: Start/stop the path. After you stop, use Edit to move points
-            and adjust the blue line (drag handles).
+            Tip: Start or stop the path. After you stop, use Edit to move points
+            and adjust the blue line with the drag handles.
           </div>
 
           <div id="mapExportArea" class="mapExportArea" style="display: none">
@@ -530,14 +643,14 @@
               </div>
               <img id="mapExportImg" alt="Map export preview" />
               <div class="actions tight" style="margin-top: 10px">
-                <a id="mapDownloadLink" class="btn" download="map-export.png"
-                  >⬇️ Download</a
-                >
+                <a id="mapDownloadLink" class="btn" download="map-export.png">
+                  ⬇️ Download
+                </a>
               </div>
               <div class="note">
-                If export is blank/gray, your tile provider may block canvas
-                export. (Try HTTPS, or switch to a tile provider with CORS
-                enabled.)
+                If export is blank or gray, your tile provider may block canvas
+                export. Try HTTPS or switch to a tile provider with CORS
+                enabled.
               </div>
             </div>
           </div>
@@ -571,7 +684,7 @@
             <select id="cameraSelect"></select>
           </div>
           <div>
-            <label for="fpsSelect">FPS (record & convert)</label>
+            <label for="fpsSelect">FPS (record &amp; convert)</label>
             <select id="fpsSelect">
               <option value="30" selected>30</option>
               <option value="24">24</option>
@@ -587,7 +700,7 @@
             <select id="previewResSelect">
               <option value="1280x720" selected>720p (1280×720)</option>
               <option value="854x480">480p (854×480)</option>
-              <option value="640x360">360p (640x360)</option>
+              <option value="640x360">360p (640×360)</option>
             </select>
           </div>
           <div>
@@ -690,7 +803,7 @@
       crossorigin=""
     ></script>
 
-    <!-- ✅ Leaflet.draw JS -->
+    <!-- Leaflet.draw JS -->
     <script
       src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"
       crossorigin=""

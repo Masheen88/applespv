@@ -1,20 +1,22 @@
-/* /map.css */
+/* map.css */
 
 /* Top-level tabs under header */
 .topTabs {
   display: flex;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
   flex-wrap: wrap;
+  max-width: 1240px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .topTab {
-  border: 1px solid var(--border);
-  background: var(--card);
+  border: 1px solid var(--border-strong, var(--border));
+  background: color-mix(in srgb, var(--card) 78%, var(--accent) 8%);
   color: var(--text);
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-radius: 999px;
-  cursor: pointer;
   font-weight: 700;
   line-height: 1;
   min-height: 44px;
@@ -22,7 +24,11 @@
 
 .topTab.active {
   border-color: transparent;
-  background: var(--primary);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 88%, white 6%),
+    var(--accent-strong, var(--accent))
+  );
   color: var(--primaryText, #fff);
 }
 
@@ -37,10 +43,11 @@
 .mapFrame {
   position: relative;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 18px;
   overflow: hidden;
   background: #000;
-  height: min(70vh, 680px);
+  height: min(76vh, 760px);
+  box-shadow: var(--shadow-soft, 0 12px 24px rgba(0, 0, 0, 0.22));
 }
 
 @media (max-width: 520px) {
@@ -57,20 +64,19 @@
 /* Floating controls stack */
 .mapControls {
   position: absolute;
-  right: 10px;
-  top: 10px;
+  right: 12px;
+  top: 58px;
   display: grid;
   gap: 10px;
   z-index: 500;
   pointer-events: auto;
 }
 
-/* Map “btn” variants */
 .mapBtn {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  border-radius: 12px;
+  border-radius: 14px;
   font-weight: 900;
 }
 
@@ -78,11 +84,11 @@
   display: grid;
   gap: 6px;
   justify-items: center;
-  padding: 2px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  padding: 4px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(8px);
 }
 
 .mapPadMid {
@@ -94,22 +100,21 @@
 /* Bottom action bar */
 .mapActionBar {
   position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
   display: flex;
   gap: 8px;
-  z-index: 650; /* ✅ keep above edit style panel */
+  z-index: 650;
   pointer-events: auto;
   flex-wrap: wrap;
 }
 
 .mapActionBar .btn {
   flex: 1 1 auto;
-  min-width: 140px;
+  min-width: 146px;
 }
 
-/* When editing, also keep the side controls above */
 body.mapEditMode .mapControls {
   z-index: 650;
 }
@@ -117,15 +122,16 @@ body.mapEditMode .mapControls {
 /* Readout */
 .mapReadout {
   position: absolute;
-  left: 10px;
-  top: 10px;
-  z-index: 500;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 90%, transparent);
-  backdrop-filter: blur(8px);
-  max-width: calc(25% - 25px);
+  left: 12px;
+  top: 12px;
+  z-index: 520;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 13, 22, 0.72);
+  backdrop-filter: blur(10px);
+  max-width: calc(100% - 96px);
+  color: #eef5ff;
 }
 
 /* Leaflet tweaks */
@@ -206,10 +212,9 @@ body.mapEditMode .mapControls {
 }
 
 .comboHud .pill {
-  color: var(--text);
-  background: color-mix(in srgb, var(--card) 70%, transparent);
-  backdrop-filter: blur(10px);
-  border-color: color-mix(in srgb, var(--border) 80%, transparent);
+  color: #eef5ff;
+  background: rgba(8, 13, 22, 0.7);
+  border-color: rgba(255, 255, 255, 0.12);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -219,12 +224,12 @@ body.mapEditMode .mapControls {
 .miniMapWrap {
   position: absolute;
   right: 12px;
-  bottom: calc(env(safe-area-inset-bottom) + 160px);
-  width: 180px;
-  height: 180px;
-  border-radius: 16px;
+  bottom: calc(env(safe-area-inset-bottom) + 172px);
+  width: 184px;
+  height: 184px;
+  border-radius: 18px;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   z-index: 1150;
   background: #000;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
@@ -234,7 +239,7 @@ body.mapEditMode .mapControls {
   .miniMapWrap {
     width: 160px;
     height: 160px;
-    bottom: calc(env(safe-area-inset-bottom) + 170px);
+    bottom: calc(env(safe-area-inset-bottom) + 190px);
   }
 }
 
@@ -254,11 +259,11 @@ body.mapEditMode .mapControls {
   bottom: 8px;
   padding: 6px 8px;
   border-radius: 12px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 82%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 13, 22, 0.72);
   backdrop-filter: blur(10px);
   font-size: 12px;
-  color: var(--text);
+  color: #eef5ff;
 }
 
 .comboDock {
@@ -268,11 +273,11 @@ body.mapEditMode .mapControls {
   bottom: 0;
   z-index: 1200;
   padding: 14px 12px calc(env(safe-area-inset-bottom) + 14px) 12px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.68), rgba(0, 0, 0, 0));
 }
 
 .comboDockInner {
-  max-width: 980px;
+  max-width: 1080px;
   margin: 0 auto;
   display: grid;
   gap: 10px;
@@ -287,35 +292,49 @@ body.mapEditMode .mapControls {
   flex-wrap: wrap;
 }
 
+.comboDockTitle {
+  min-width: 0;
+}
+
 .comboDockActions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .comboDockBottomRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.comboDockBottomRow .btn {
+  flex: 0 0 auto;
+}
+
+.comboDockHint {
+  margin-top: 0;
+  font-size: 11px;
+  line-height: 1.3;
+  opacity: 0.76;
 }
 
 @media (max-width: 420px) {
   .comboDockActions .btn {
-    flex: 1 1 calc(50% - 10px);
+    flex: 1 1 calc(50% - 8px);
   }
+
   #comboEnableCameraBtn {
     flex: 1 1 100%;
   }
-  .comboDockBottomRow {
-    grid-template-columns: 1fr 1fr;
-  }
-  #comboStartPathBtn {
-    grid-column: 1 / -1;
+
+  .comboDockBottomRow .btn {
+    flex: 1 1 calc(50% - 8px);
   }
 }
 
 /* ----------------------------- */
-/* ✅ Numbered drop points       */
+/* Numbered drop points          */
 /* ----------------------------- */
 
 .dropPointIcon {
@@ -337,7 +356,7 @@ body.mapEditMode .mapControls {
 }
 
 /* ----------------------------- */
-/* ✅ Editing UX (Leaflet.draw)  */
+/* Editing UX (Leaflet.draw)     */
 /* ----------------------------- */
 
 .leaflet-editing-icon {
@@ -359,22 +378,19 @@ body.mapEditMode .mapControls {
 }
 
 /* ----------------------------- */
-/* ✅ Edit style panel           */
+/* Edit style panel              */
 /* ----------------------------- */
 
 .editStylePanel {
   position: absolute;
-  left: 10px;
-
-  /* ✅ keep above map edge, but below the action bar buttons */
-  bottom: calc(10px + env(safe-area-inset-bottom) + 90px);
-
-  z-index: 600; /* ✅ below action bar (650) */
-  width: min(320px, calc(100% - 20px));
+  left: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom) + 94px);
+  z-index: 600;
+  width: min(320px, calc(100% - 24px));
   padding: 10px 10px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 13, 22, 0.82);
   backdrop-filter: blur(10px);
   pointer-events: auto;
 }
@@ -392,10 +408,38 @@ body.mapEditMode .mapControls {
 }
 
 .editStyleCloseBtn {
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 70%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text);
   border-radius: 12px;
   height: 34px;
   min-width: 44px;
-  padding:
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.editStyleRow {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.editStyleRow label {
+  margin: 0;
+}
+
+@media (max-width: 520px) {
+  .mapControls {
+    top: 62px;
+  }
+
+  .mapActionBar .btn {
+    min-width: calc(50% - 6px);
+  }
+
+  .editStylePanel {
+    bottom: calc(12px + env(safe-area-inset-bottom) + 136px);
+  }
+}

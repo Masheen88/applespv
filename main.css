@@ -1,17 +1,23 @@
 /* main.css */
 
 :root {
-  --bg: #0b0f14;
+  --bg: #070b11;
+  --bg-elevated: #0d1420;
   --card: #111826;
+  --card-soft: rgba(255, 255, 255, 0.04);
   --muted: #90a4b8;
   --text: #e8f0ff;
   --accent: #4da3ff;
-  --danger: #ff4d4d;
-  --ok: #46d38a;
+  --accent-strong: #2563eb;
+  --danger: #ff5d5d;
+  --ok: #3fd48a;
   --border: rgba(255, 255, 255, 0.1);
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  --radius: 16px;
-  --pad: 14px;
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  --shadow-soft: 0 12px 24px rgba(0, 0, 0, 0.22);
+  --radius: 22px;
+  --radius-sm: 16px;
+  --pad: 16px;
 
   /* Map tab uses these */
   --primary: var(--accent);
@@ -21,15 +27,20 @@
 }
 
 [data-theme="light"] {
-  --bg: #f6f7fb;
+  --bg: #f3f6fb;
+  --bg-elevated: #ffffff;
   --card: #ffffff;
-  --muted: #5a6b7c;
-  --text: #0b1522;
+  --card-soft: rgba(37, 99, 235, 0.06);
+  --muted: #5d6d7d;
+  --text: #0d1723;
   --accent: #2563eb;
+  --accent-strong: #1d4ed8;
   --danger: #dc2626;
   --ok: #16a34a;
-  --border: rgba(0, 0, 0, 0.1);
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  --border: rgba(15, 23, 42, 0.09);
+  --border-strong: rgba(15, 23, 42, 0.18);
+  --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.07);
 
   --primary: var(--accent);
   --primaryText: #fff;
@@ -48,9 +59,12 @@ body {
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at top, rgba(77, 163, 255, 0.16), transparent 25%),
+    linear-gradient(180deg, var(--bg-elevated), var(--bg));
   color: var(--text);
   font-family:
+    Inter,
     system-ui,
     -apple-system,
     Segoe UI,
@@ -60,67 +74,144 @@ body {
   overflow-x: hidden;
 }
 
-/* Header stays usable on normal tabs */
+a {
+  color: inherit;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+/* Header */
 header {
   position: sticky;
   top: 0;
-  z-index: 5;
-  padding: calc(env(safe-area-inset-top) + 10px) 12px 10px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35), transparent);
-  backdrop-filter: blur(8px);
+  z-index: 10;
+  padding: calc(env(safe-area-inset-top) + 12px) 14px 12px;
+  backdrop-filter: blur(16px);
+  background: linear-gradient(
+    to bottom,
+    rgba(7, 11, 17, 0.82),
+    rgba(7, 11, 17, 0.36)
+  );
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.row {
+[data-theme="light"] header {
+  background: linear-gradient(
+    to bottom,
+    rgba(243, 246, 251, 0.9),
+    rgba(243, 246, 251, 0.55)
+  );
+  border-bottom-color: rgba(15, 23, 42, 0.06);
+}
+
+.appHeaderBar {
+  max-width: 1240px;
+  margin: 0 auto;
   display: flex;
-  gap: 10px;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.brandBlock {
+  min-width: 0;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.subtleHeaderCopy {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 760px;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
 }
 
 h1 {
-  font-size: 16px;
-  margin: 0;
-  letter-spacing: 0.2px;
+  font-size: clamp(20px, 2.1vw, 28px);
+  margin-bottom: 0;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 18px;
+  margin-bottom: 0;
+  letter-spacing: -0.01em;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 main {
-  padding: 12px;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 14px);
-  max-width: 980px;
+  padding: 16px;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
+  max-width: 1240px;
   margin: 0 auto;
 }
 
 .card {
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
 
+.videoCardShell {
+  overflow: clip;
+}
+
+.panelHeader,
 .card h2 {
   margin: 0;
-  font-size: 14px;
-  padding: 12px var(--pad);
+  padding: 16px 18px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 14px;
+}
+
+.panelHeaderStack {
+  align-items: stretch;
+  flex-wrap: wrap;
 }
 
 .card .content {
-  padding: var(--pad);
+  padding: 18px;
 }
 
-.btn {
+/* Buttons */
+.btn,
+.iconBtn,
+.tab {
   appearance: none;
-  border: 1px solid var(--border);
-  background: transparent;
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--card) 70%, var(--accent) 12%);
   color: var(--text);
-  padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -131,74 +222,121 @@ main {
   user-select: none;
   min-height: 44px;
   white-space: nowrap;
-  background-color: hsla(211, 100%, 65%, 0.658);
-
-  /* ✅ important: anchors styled as buttons too */
   text-decoration: none;
+  transition:
+    transform 0.14s ease,
+    border-color 0.14s ease,
+    background 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
-.btn:hover {
-  background-color: hsla(211, 100%, 65%, 0.85);
-  transition: background-color 0.2s ease;
+.btn {
+  padding: 10px 14px;
+}
+
+.iconBtn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 18px;
+  background: color-mix(in srgb, var(--card) 76%, var(--accent) 10%);
+}
+
+.btn:hover,
+.iconBtn:hover,
+.tab:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-strong));
+  background: color-mix(in srgb, var(--card) 65%, var(--accent) 18%);
 }
 
 .btn.primary {
-  background: var(--accent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 88%, white 6%),
+    var(--accent-strong)
+  );
   border-color: transparent;
   color: white;
 }
 
 .btn.danger {
-  background: var(--danger);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--danger) 90%, white 6%),
+    color-mix(in srgb, var(--danger) 70%, black 14%)
+  );
   border-color: transparent;
   color: white;
 }
 
-.btn:disabled {
-  opacity: 0.45;
+.btn:disabled,
+.iconBtn:disabled,
+.tab:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
+/* Tabs */
 .tabs {
   display: flex;
   gap: 10px;
-  padding: 10px var(--pad);
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  flex-wrap: wrap;
+}
+
+.modeTabs {
+  padding: 0;
+  border-bottom: 0;
 }
 
 .tab {
   flex: 0 0 auto;
-  padding: 10px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
+  padding: 10px 14px;
   color: var(--muted);
-  cursor: pointer;
   background: transparent;
-  min-height: 44px;
+  border-radius: 999px;
 }
 
 .tab.active {
-  background: rgba(77, 163, 255, 0.18);
+  background: color-mix(in srgb, var(--accent) 20%, var(--card));
   color: var(--text);
-  border-color: rgba(77, 163, 255, 0.45);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border-strong));
 }
 
-video {
-  width: 100%;
-  border-radius: 14px;
-  background: #000;
-  max-height: 60vh;
+/* General text */
+.mono {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    Liberation Mono,
+    monospace;
 }
 
-/* Group cards for concise UI */
+.note {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.warn {
+  color: var(--danger);
+}
+
+/* Reusable cards */
 .groupCard {
-  margin-top: 12px;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--card-soft) 100%, transparent);
+  box-shadow: var(--shadow-soft);
 }
 
 .groupTop {
@@ -207,12 +345,12 @@ video {
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .groupTitle {
-  font-weight: 700;
-  font-size: 13px;
+  font-weight: 800;
+  font-size: 14px;
 }
 
 .groupSub {
@@ -220,11 +358,33 @@ video {
   color: var(--muted);
 }
 
-.status {
+.banner {
+  border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--border));
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+  margin-bottom: 14px;
+}
+
+.bannerTitle {
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.banner p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.status,
+.heroMetrics,
+.overlayChipRow {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
 }
 
 .status.compact {
@@ -235,33 +395,14 @@ video {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--muted);
   font-size: 12px;
   min-width: 0;
-}
-
-.mono {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    monospace;
-}
-
-.note {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.35;
-  margin-top: 10px;
-}
-
-.ok {
-  color: var(--ok);
-}
-
-.warn {
-  color: var(--danger);
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  backdrop-filter: blur(10px);
 }
 
 .bar {
@@ -276,7 +417,11 @@ video {
 .bar > div {
   height: 100%;
   width: 0%;
-  background: var(--accent);
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 72%, white 28%)
+  );
 }
 
 .actions {
@@ -287,25 +432,215 @@ video {
 }
 
 .actions.tight {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
-/* Make key controls fit on iPhone */
-@media (max-width: 420px) {
-  .actions.tight .btn {
-    flex: 1 1 calc(50% - 10px);
-  }
-  #recordToggleBtn {
-    flex: 1 1 100%;
-  }
+.stackSection {
+  display: grid;
+  gap: 14px;
+}
+
+/* Video workspace */
+.videoWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.workspaceMainCol,
+.workspaceSideCol {
+  min-width: 0;
+}
+
+.workspaceMainCol {
+  display: grid;
+  gap: 14px;
+}
+
+.workspaceSideCol {
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: calc(env(safe-area-inset-top) + 104px);
+}
+
+.heroStageCard {
+  display: grid;
+  gap: 12px;
+}
+
+.heroStageTop {
+  margin-bottom: 0;
+}
+
+.heroHint {
+  margin: 0;
+  max-width: 320px;
+  text-align: right;
+}
+
+.videoStage {
+  position: relative;
+  min-height: clamp(360px, 68vh, 820px);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at top, rgba(77, 163, 255, 0.18), transparent 28%),
+    #000;
+}
+
+#preview,
+.uploadPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+  border-radius: 0;
+  max-height: none;
+}
+
+.videoStageOverlay {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+}
+
+.overlayChipRow .pill {
+  color: #eef5ff;
+  background: rgba(9, 15, 25, 0.62);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.uploadEmptyState {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  text-align: center;
+  z-index: 1;
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(77, 163, 255, 0.18),
+      transparent 40%
+    ),
+    linear-gradient(180deg, rgba(9, 15, 25, 0.8), rgba(9, 15, 25, 0.96));
+}
+
+.uploadEmptyStateInner {
+  max-width: 420px;
+}
+
+.uploadIcon {
+  font-size: 44px;
+  margin-bottom: 10px;
+}
+
+.uploadEmptyTitle {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.uploadEmptyCopy {
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.stageMetaRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.uploadPanelCard {
+  border-style: dashed;
+  border-width: 1.5px;
+}
+
+.recordActionsGrid .btn {
+  flex: 1 1 calc(33.333% - 10px);
+}
+
+/* Upload mode presentation */
+#videoTabPanel[data-mode="upload"] #cameraGroup,
+#videoTabPanel[data-mode="upload"] #recordPanel {
+  display: none !important;
+}
+
+#videoTabPanel[data-mode="upload"] .videoStage {
+  min-height: clamp(360px, 72vh, 860px);
+}
+
+#videoTabPanel[data-mode="upload"] #preview {
+  display: none;
+}
+
+#videoTabPanel[data-mode="upload"] .heroHint {
+  max-width: 420px;
+}
+
+#videoTabPanel[data-mode="record"] #uploadPreview,
+#videoTabPanel[data-mode="record"] #uploadEmptyState {
+  display: none !important;
+}
+
+/* Forms */
+label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+select,
+input[type="range"],
+input[type="file"] {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  color: var(--text);
+  outline: none;
+  min-height: 46px;
+}
+
+input[type="file"]::file-selector-button {
+  border: 0;
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin-right: 10px;
+  color: white;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+input[type="range"] {
+  padding: 10px 0;
+  min-height: auto;
+}
+
+.twoCol {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
 }
 
 .progressBox {
   display: none;
-  margin-top: 10px;
+  margin-top: 12px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 14px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--card) 84%, transparent);
 }
 
 .progressTop {
@@ -317,14 +652,27 @@ video {
 }
 
 .log {
-  margin-top: 8px;
+  margin-top: 10px;
   font-size: 12px;
   color: var(--muted);
   white-space: pre-wrap;
-  max-height: 160px;
+  max-height: 180px;
   overflow: auto;
   border-top: 1px solid var(--border);
-  padding-top: 8px;
+  padding-top: 10px;
+}
+
+.resultArea {
+  margin-top: 12px;
+}
+
+.hiddenTools {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
 }
 
 /* Settings drawer */
@@ -341,24 +689,21 @@ video {
   left: 0;
   right: 0;
   bottom: 0;
-
   transform: translateY(110%);
   transition: transform 0.2s ease;
-
   z-index: 60;
   background: var(--card);
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
-
   height: min(88dvh, calc(100dvh - env(safe-area-inset-top) - 10px));
   overflow: hidden;
   padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
 }
 
 .sheetHeader {
-  padding: 12px var(--pad);
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -372,336 +717,137 @@ video {
 
 .sheetHeader h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .sheetBody {
-  padding: var(--pad);
+  padding: 18px;
   display: grid;
-  gap: 12px;
-
+  gap: 14px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  height: calc(100% - 58px);
+  height: calc(100% - 62px);
 }
 
-label {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-select,
-input[type="range"],
-input[type="file"] {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  outline: none;
-  min-height: 44px;
-}
-
-input[type="range"] {
-  padding: 10px 0;
-  min-height: auto;
-}
-
-.twoCol {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr 1fr;
-}
-
-@media (max-width: 420px) {
-  .twoCol {
-    grid-template-columns: 1fr;
-  }
-}
-
-.banner {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  margin-bottom: 12px;
-}
-
-.bannerTitle {
-  font-weight: 700;
-  font-size: 13px;
-  margin-bottom: 6px;
-}
-
-.banner p {
-  margin: 0;
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.35;
-}
-
-/* Hidden helpers */
-.hiddenTools {
-  position: absolute;
-  left: -9999px;
-  top: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-/* ============================= */
-/* Combo fullscreen stage         */
-/* ============================= */
-
-/* Fullscreen stage wrapper */
-.comboFullscreenStage {
+/* Modal */
+.modalOverlay {
   position: fixed;
   inset: 0;
-  z-index: 100; /* Above the normal app chrome */
-  background: #000;
-
-  /* Use dvh to react to browser bar show/hide */
-  height: 100dvh;
-  width: 100vw;
-
-  /* Prevent accidental scroll bounce on iOS */
-  overscroll-behavior: none;
-  touch-action: manipulation;
+  background: rgba(0, 0, 0, 0.62);
+  z-index: 70;
 }
 
-/* Fullscreen video */
-#comboPreview {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: #000;
-
-  /* In combo fullscreen we want edge-to-edge */
-  border-radius: 0;
-  max-height: none;
+.modal {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 980px);
+  max-height: min(90dvh, 880px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  z-index: 80;
+  overflow: hidden;
 }
 
-/* Top HUD row */
-.comboHud {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  top: calc(env(safe-area-inset-top) + 10px);
-  z-index: 120;
+.modalHeader {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 10px;
-
-  pointer-events: none;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
 }
 
-/* Make the HUD pill readable on video */
-#comboHudText {
-  background: color-mix(in srgb, var(--card) 70%, transparent);
-  backdrop-filter: blur(10px);
-  border-color: color-mix(in srgb, var(--border) 85%, transparent);
-  color: var(--text);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.modalHeader h3 {
+  margin: 0;
 }
 
-/* Bottom control dock overlay */
-.comboDock {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 130;
-
-  padding: 8px 10px calc(env(safe-area-inset-bottom) + 10px) 10px;
-
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.66), rgba(0, 0, 0, 0));
-  pointer-events: none;
+.modalBody {
+  padding: 18px;
 }
 
-/* Reduce spacing inside the dock */
-.comboDockInner {
-  gap: 6px;
-}
-
-/* Tighten both rows */
-.comboDockTopRow {
-  gap: 6px;
-}
-
-.comboDockActions {
-  gap: 6px;
-}
-
-.comboDockBottomRow {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: 1.2fr 1fr 1fr 0.9fr; /* Start / Drop / Center / Back */
-}
-
-@media (max-width: 420px) {
-  .comboDockBottomRow {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  #comboStartPathBtn {
-    grid-column: 1 / -1;
-  }
-}
-
-/* Make combo buttons smaller than normal .btn */
-#comboTabPanel .comboDock .btn {
-  padding: 7px 9px; /* smaller tap area while still usable */
-  border-radius: 10px;
-  min-height: 36px; /* was 44px globally */
-  font-size: 12px;
-  gap: 6px;
-}
-
-/* Keep primary buttons from looking huge */
-#comboTabPanel .comboDock .btn.primary {
-  box-shadow: none;
-}
-
-/* Keep "Ready" label from taking space */
-.comboDockTitle .mono#comboStateNote {
-  font-size: 12px;
-  opacity: 0.85;
-}
-
-/* If you want Start Path not to be massive */
-#comboStartPathBtn {
-  justify-content: center;
-}
-
-/* On very small phones, stack controls for reach */
-@media (max-width: 420px) {
-  .comboDockActions .btn {
-    flex: 1 1 calc(50% - 10px);
-  }
-
-  /* Prefer Enable on its own row */
-  #comboEnableCameraBtn {
-    flex: 1 1 100%;
-  }
-
-  /* Start path gets full width */
-  #comboStartPathBtn {
-    grid-column: 1 / -1;
-  }
-}
-
-/* Minimap overlay (still defined here for combo mode) */
-.miniMapWrap {
-  position: absolute;
-  right: 12px;
-  bottom: calc(env(safe-area-inset-bottom) + 150px);
-  width: 180px;
-  height: 180px;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  z-index: 125;
+#modalVideo {
+  width: 100%;
+  max-height: 72dvh;
+  border-radius: 18px;
   background: #000;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .videoWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .workspaceSideCol {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  main {
+    padding: 12px;
+  }
+
+  .panelHeader,
+  .card h2,
+  .card .content,
+  .sheetBody,
+  .sheetHeader,
+  .modalBody,
+  .modalHeader {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .videoStage {
+    min-height: min(66vh, 560px);
+  }
+
+  .heroHint {
+    text-align: left;
+    max-width: none;
+  }
 }
 
 @media (max-width: 520px) {
-  .miniMapWrap {
-    width: 160px;
-    height: 160px;
-    bottom: calc(env(safe-area-inset-bottom) + 160px);
-  }
-}
-
-.miniMap {
-  position: absolute;
-  inset: 0;
-}
-
-.miniReadout {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  padding: 6px 8px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 80%, transparent);
-  backdrop-filter: blur(10px);
-  font-size: 12px;
-  color: var(--text);
-}
-
-/* Small hint text inside dock */
-.comboDockHint {
-  margin-top: 2px;
-  font-size: 11px;
-  line-height: 1.2;
-  opacity: 0.7;
-}
-/* When Combo is active: keep header out of the way */
-/* body.comboMode header {
-  display: none;
-} */
-
-body.comboMode main {
-  max-width: none;
-  padding: 0;
-  margin: 0;
-}
-
-/* Optional: if comboMode is on, remove card rounding/shadow artifacts */
-body.comboMode .card {
-  border-radius: 0;
-  box-shadow: none;
-}
-
-/*ANCHOR OVERRIDES */
-/* ===== Combo: stop buttons from stretching ===== */
-
-/* Top row: keep buttons compact (no fill) */
-.comboDockActions {
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-}
-
-#comboTabPanel .comboDockActions .btn {
-  flex: 0 0 auto !important;
-  width: auto !important;
-}
-
-/* Bottom row: keep a compact wrap instead of big grid columns */
-.comboDockBottomRow {
-  display: flex !important;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-}
-
-#comboTabPanel .comboDockBottomRow .btn {
-  flex: 0 0 auto !important;
-  width: auto !important;
-}
-
-/* Small phones: override the "make them huge" rules */
-@media (max-width: 420px) {
-  .comboDockActions .btn,
-  #comboEnableCameraBtn {
-    flex: 0 0 auto !important;
-    width: auto !important;
+  .appHeaderBar {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  #comboStartPathBtn {
-    grid-column: auto !important;
+  .headerActions {
+    justify-content: flex-end;
+  }
+
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+
+  .actions.tight .btn {
+    flex: 1 1 calc(50% - 10px);
+  }
+
+  .recordActionsGrid .btn:first-child,
+  #convertBtn {
+    flex: 1 1 100%;
+  }
+
+  .panelHeader {
+    align-items: flex-start;
+  }
+
+  .videoStage {
+    min-height: min(60vh, 480px);
+  }
+
+  .overlayChipRow {
+    gap: 6px;
+  }
+
+  .overlayChipRow .pill {
+    padding: 7px 10px;
   }
 }

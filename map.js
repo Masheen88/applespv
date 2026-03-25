@@ -17,6 +17,17 @@
     const isCombo = tab === "combo";
 
     document.body.classList.toggle("comboMode", isCombo);
+    document.body.dataset.appTab = tab;
+
+    [
+      [appTabVideo, isVideo],
+      [appTabMap, isMap],
+      [appTabCombo, isCombo],
+    ].forEach(([el, active]) => {
+      if (!el) return;
+      el.classList.toggle("active", active);
+      el.setAttribute("aria-selected", active ? "true" : "false");
+    });
 
     if (videoTabPanel) videoTabPanel.style.display = isVideo ? "" : "none";
     if (mapTabPanel) mapTabPanel.style.display = isMap ? "" : "none";
