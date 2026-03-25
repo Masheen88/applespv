@@ -229,6 +229,8 @@ let chunks = [];
 let recordedBytes = 0;
 let startTs = 0;
 let tickTimer = null;
+let pauseStartedTs = 0;
+let pausedMsTotal = 0;
 
 let torchOn = false;
 
@@ -426,9 +428,7 @@ function logProgress(line) {
 function updateRecUI() {
   setText(UI.recSizeLabel, fmtMB(recordedBytes));
 
-  const secs = startTs
-    ? Math.max(0, Math.floor((Date.now() - startTs) / 1000))
-    : 0;
+  const secs = Math.floor(getElapsedRecordingMs() / 1000);
   setText(UI.recTimeLabel, fmtTime(secs));
 
   const pct = Math.min(100, (recordedBytes / MAX_BYTES) * 100);
@@ -516,9 +516,7 @@ function openPreviewModal(blob, label) {
   UI.closeModalBtn?.focus();
 
   setTimeout(() => {
-    try {
-      UI.modalVideo.play();
-    } catch (_) {}
+    UI.modalVideo.play().catch(() => {});
   }, 0);
 }
 
@@ -605,8 +603,11 @@ async function shareVideo(blob, ext) {
 
 async function saveVideo(blob, ext) {
   const filename = `gorilladesk-video.${ext}`;
+  const file = new File([blob], filename, {
+    type: blob.type || "video/mp4",
+  });
 
-  // Chromium/Android best case: real save picker
+  // Chromium/Android desktop-style picker
   if ("showSaveFilePicker" in globalThis) {
     try {
       const handle = await globalThis.showSaveFilePicker({
@@ -624,35 +625,48 @@ async function saveVideo(blob, ext) {
       await writable.close();
       return;
     } catch (err) {
-      // User cancel is normal; only fall through for actual fallback behavior.
       if (err?.name !== "AbortError") {
         console.error("showSaveFilePicker failed:", err);
       }
     }
   }
 
-  // Generic browser fallback: direct download attempt
-  try {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  // Mobile-friendly fallback: use the share sheet first when possible
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({
+      files: [file],
+      title: "Video",
+      text: "Compressed video (≤ 50MB)",
+    });
     return;
-  } catch (err) {
-    console.error("anchor download failed:", err);
   }
 
-  // iPhone / restrictive-browser last resort:
-  // open the file so the user can use the browser's share/save UI.
+  const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
   const url = URL.createObjectURL(blob);
-  globalThis.open(url, "_blank", "noopener");
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+  // On iPhone / Android browsers, opening the blob is often more reliable
+  // than a fake anchor download.
+  if (isIOS || isAndroid) {
+    const opened = globalThis.open(url, "_blank", "noopener");
+    if (!opened) {
+      globalThis.location.href = url;
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
+
+  // Desktop fallback
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 function renderResult(blob, label) {
@@ -1034,11 +1048,26 @@ function resetRecordingState() {
   chunks = [];
   recordedBytes = 0;
   startTs = 0;
+  pauseStartedTs = 0;
+  pausedMsTotal = 0;
+
   if (tickTimer) clearInterval(tickTimer);
   tickTimer = null;
 
   setText(UI.recStateLabel, "Idle");
   updateRecUI();
+}
+
+function getElapsedRecordingMs() {
+  if (!startTs) return 0;
+
+  const now = Date.now();
+  const activePauseMs =
+    mediaRecorder?.state === "paused" && pauseStartedTs
+      ? now - pauseStartedTs
+      : 0;
+
+  return Math.max(0, now - startTs - pausedMsTotal - activePauseMs);
 }
 
 function bestRecorderMimeForCurrentDevice() {
@@ -1081,6 +1110,11 @@ async function startRecording() {
   };
 
   mediaRecorder.onstop = () => {
+    if (pauseStartedTs) {
+      pausedMsTotal += Date.now() - pauseStartedTs;
+      pauseStartedTs = 0;
+    }
+
     setEnabled(UI.recordToggleBtn, true);
     setEnabled(UI.pauseBtn, false);
     setEnabled(UI.resetBtn, true);
@@ -1105,11 +1139,16 @@ async function startRecording() {
   };
 
   mediaRecorder.onpause = () => {
+    pauseStartedTs = Date.now();
     setText(UI.recStateLabel, "Paused");
     setText(UI.pauseBtn, "▶️ Resume");
   };
 
   mediaRecorder.onresume = () => {
+    if (pauseStartedTs) {
+      pausedMsTotal += Date.now() - pauseStartedTs;
+      pauseStartedTs = 0;
+    }
     setText(UI.recStateLabel, "Recording");
     setText(UI.pauseBtn, "⏸️ Pause");
   };
