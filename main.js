@@ -821,7 +821,7 @@ function renderResult(blob, label) {
         <span class="mono">${blob.type || "video/*"}</span>
       </div>
 
-      <!-- <div
+      <div
         class="pill"
         style="width:100%; justify-content:space-between; margin-bottom:10px;"
       >
@@ -829,7 +829,7 @@ function renderResult(blob, label) {
         <span class="mono ${gdOk ? "ok" : "warn"}"
           >${gdOk ? "YES" : "NO (WebM not accepted)"}</span
         >
-      </div> -->
+      </div>
 
       <div class="actions tight">
         <button class="btn primary" id="saveBtn" type="button">⬇️ Save</button>
@@ -860,17 +860,17 @@ function renderResult(blob, label) {
   const previewBtn = $("previewBtn");
   previewBtn?.addEventListener("click", () => openPreviewModal(blob, label));
 
-  const shareBtn = $("shareBtn");
-  shareBtn?.addEventListener("click", async () => {
-    try {
-      await shareVideo(blob, ext);
-    } catch (err) {
-      console.error(err);
-      alert(
-        "Share is not available for this generated video on this browser/device. Use Save, then share it from Files, Photos, or Downloads.",
-      );
-    }
-  });
+  // const shareBtn = $("shareBtn");
+  // shareBtn?.addEventListener("click", async () => {
+  //   try {
+  //     await shareVideo(blob, ext);
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert(
+  //       "Share is not available for this generated video on this browser/device. Use Save, then share it from Files, Photos, or Downloads.",
+  //     );
+  //   }
+  // });
 }
 
 /********************************************************************
