@@ -593,11 +593,13 @@ async function saveVideo(blob, ext) {
 
   // Fallback: regular browser download
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `gorilladesk-video.${ext}`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+const a = document.createElement("a");
+a.href = url;
+a.download = `gorilladesk-video.${ext}`;
+document.body.appendChild(a);
+a.click();
+a.remove();
+setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function renderResult(blob, label) {
@@ -645,14 +647,7 @@ function renderResult(blob, label) {
       <a class="btn primary" href="${url}" download="gorilladesk-video.${ext}">⬇️ Save</a>
     -->
 
-        <button
-          class="btn primary"
-          id="saveBtn"
-          type="button"
-          onclick="() => saveVideo(blob, ext)"
-        >
-          ⬇️ Save
-        </button>
+        <button class="btn primary" id="saveBtn" type="button">⬇️ Save</button>
 
         <button class="btn" id="previewBtn" type="button">🎬 Preview</button>
         <button class="btn" id="shareBtn" type="button">📤 Share</button>
@@ -667,6 +662,16 @@ function renderResult(blob, label) {
       }
     `,
   );
+
+  const saveBtn = $("saveBtn");
+  saveBtn?.addEventListener("click", async () => {
+    try {
+      await saveVideo(blob, ext);
+    } catch (err) {
+      console.error(err);
+      alert("Save failed on this device/browser. Try Share instead.");
+    }
+  });
 
   const previewBtn = $("previewBtn");
   previewBtn?.addEventListener("click", () => openPreviewModal(blob, label));
