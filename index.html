@@ -1,4 +1,3 @@
-<!-- index.html -->
 <!doctype html>
 <html lang="en">
   <head>
@@ -8,6 +7,7 @@
       content="width=device-width,initial-scale=1,viewport-fit=cover"
     />
     <title>50MB Video Recorder / Converter (MP4-first)</title>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
 
     <link rel="stylesheet" href="main.css" />
     <link rel="stylesheet" href="map.css" />
@@ -19,16 +19,43 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
+
+    <!-- ✅ Leaflet.draw CSS (for path/marker editing) -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"
+      crossorigin=""
+    />
   </head>
   <body>
     <header id="appHeader">
       <div class="row">
         <h1>50MB Video Recorder / Converter</h1>
-        <div class="row" style="gap: 8px">
-          <button id="settingsBtn" class="btn" type="button">
-            ⚙️ Settings
+        <div style="gap: 8px; position: absolute; right: 0; top: 2px">
+          <button
+            id="themeBtn"
+            style="
+              background-color: transparent;
+              border: none;
+              cursor: pointer;
+              font-size: 18px;
+            "
+            type="button"
+          >
+            🌓
           </button>
-          <button id="themeBtn" class="btn" type="button">🌓 Theme</button>
+          <button
+            id="settingsBtn"
+            style="
+              background-color: transparent;
+              border: none;
+              cursor: pointer;
+              font-size: 18px;
+            "
+            type="button"
+          >
+            ⚙️
+          </button>
         </div>
       </div>
 
@@ -36,16 +63,16 @@
       <div class="topTabs" role="tablist" aria-label="app tabs">
         <button
           id="appTabVideo"
-          class="topTab active"
+          class="btn topTab"
           type="button"
           role="tab"
-          aria-selected="true"
+          aria-selected="false"
         >
           🎥 Video Only
         </button>
         <button
           id="appTabMap"
-          class="topTab"
+          class="btn topTab"
           type="button"
           role="tab"
           aria-selected="false"
@@ -54,7 +81,7 @@
         </button>
         <button
           id="appTabCombo"
-          class="topTab"
+          class="btn topTab"
           type="button"
           role="tab"
           aria-selected="false"
@@ -70,10 +97,26 @@
       <!-- ========================= -->
       <section id="videoTabPanel" class="card">
         <h2>
-          <span>Record / Upload</span>
-          <span class="pill"
-            >Limit: <span class="mono" id="limitLabel">50.0 MB</span></span
-          >
+          <div class="tabs" role="tablist" aria-label="mode tabs">
+            <button
+              id="tabRecord"
+              class="tab active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+            >
+              🎥 Record
+            </button>
+            <button
+              id="tabUpload"
+              class="tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+            >
+              📁 Upload
+            </button>
+          </div>
         </h2>
 
         <div class="content">
@@ -114,27 +157,6 @@
             <div class="note" style="margin-top: 8px">
               Tip: iPhone Safari requires HTTPS for camera access.
             </div>
-          </div>
-
-          <div class="tabs" role="tablist" aria-label="mode tabs">
-            <button
-              id="tabRecord"
-              class="tab active"
-              type="button"
-              role="tab"
-              aria-selected="true"
-            >
-              🎥 Record
-            </button>
-            <button
-              id="tabUpload"
-              class="tab"
-              type="button"
-              role="tab"
-              aria-selected="false"
-            >
-              📁 Upload
-            </button>
           </div>
 
           <!-- Record Panel -->
@@ -215,17 +237,6 @@
             "
           />
 
-          <div class="status">
-            <span class="pill"
-              >Preferred output:
-              <span class="mono" id="preferredMimeLabel">—</span></span
-            >
-            <span class="pill"
-              >GorillaDesk compatible:
-              <span class="mono" id="gdCompatLabel">—</span></span
-            >
-          </div>
-
           <!-- Convert group -->
           <div class="groupCard" id="convertGroup" style="margin-top: 12px">
             <div class="groupTop">
@@ -248,13 +259,9 @@
                 <div>Status: <span class="mono" id="progressText">—</span></div>
               </div>
 
-              <!-- NEW: per-attempt progress bar -->
               <div class="status compact" style="margin-top: 8px">
                 <span class="pill"
                   >Progress: <span class="mono" id="convPctLabel">—</span></span
-                >
-                <span class="pill"
-                  >ETA: <span class="mono" id="convEtaLabel">—</span></span
                 >
               </div>
               <div
@@ -300,9 +307,6 @@
 
             <div class="miniMapWrap" aria-label="minimap">
               <div id="minimap" class="miniMap"></div>
-              <div class="miniReadout mono" id="miniReadout">
-                GPS: — • Points: 0 • Path: 0
-              </div>
             </div>
 
             <div class="comboDock" aria-label="combo controls">
@@ -347,12 +351,13 @@
                     📍 Drop point
                   </button>
                   <button
-                    id="comboCenterBtn"
+                    id="comboEditBtn"
                     class="btn"
                     type="button"
                     disabled
+                    title="Edit points/path (only when path is stopped)"
                   >
-                    ◎ Center
+                    ✏️ Edit
                   </button>
                   <button id="comboExitBtn" class="btn" type="button">
                     ⬅️ Back
@@ -360,8 +365,8 @@
                 </div>
 
                 <div class="comboDockHint note">
-                  Tip: Record video and track your walking path at the same
-                  time. The minimap stays north-up.
+                  Tip: Start/stop the path. After you stop, tap Edit to move
+                  points and tweak the path.
                 </div>
               </div>
             </div>
@@ -373,7 +378,6 @@
       <!-- MAP TAB                  -->
       <!-- ========================= -->
       <section id="mapTabPanel" class="card" style="display: none">
-        <!-- unchanged -->
         <h2>
           <span>Map / Plot</span>
           <span class="pill">North-up • Satellite • GPS</span>
@@ -392,12 +396,14 @@
             <div id="map" class="map"></div>
 
             <div class="mapControls" aria-label="map controls">
-              <button id="mapZoomInBtn" class="btn mapBtn" type="button">
-                ＋
-              </button>
-              <button id="mapZoomOutBtn" class="btn mapBtn" type="button">
-                －
-              </button>
+              <div>
+                <button id="mapZoomInBtn" class="btn mapBtn" type="button">
+                  ＋
+                </button>
+                <button id="mapZoomOutBtn" class="btn mapBtn" type="button">
+                  －
+                </button>
+              </div>
 
               <div class="mapPad">
                 <button id="mapPanUpBtn" class="btn mapBtn" type="button">
@@ -427,6 +433,26 @@
               <button id="dropPointBtn" class="btn" type="button" disabled>
                 🔴 Drop point
               </button>
+
+              <!-- ✅ Edit / Done buttons -->
+              <button
+                id="editMapBtn"
+                class="btn"
+                type="button"
+                disabled
+                title="Edit points/path (only when path is stopped)"
+              >
+                ✏️ Edit
+              </button>
+              <button
+                id="doneEditMapBtn"
+                class="btn"
+                type="button"
+                style="display: none"
+              >
+                ✅ Done
+              </button>
+
               <button id="exportMapBtn" class="btn" type="button" disabled>
                 🖼️ Export image
               </button>
@@ -440,15 +466,60 @@
               </button>
             </div>
 
-            <div class="mapReadout mono" id="mapReadout">
-              GPS: — • Points: 0 • Path: 0
+            <!-- ✅ Edit Style Panel -->
+            <div
+              id="editStylePanel"
+              class="editStylePanel"
+              style="display: none"
+            >
+              <div class="editStyleHeader">
+                <div class="editStyleTitle">Edit style</div>
+                <button
+                  id="closeEditStyleBtn"
+                  class="editStyleCloseBtn"
+                  type="button"
+                  aria-label="Close edit mode"
+                  title="Close edit mode"
+                >
+                  ✖️
+                </button>
+              </div>
+
+              <div class="editStyleRow">
+                <label for="dpSizeRange">Dot size</label>
+                <input
+                  id="dpSizeRange"
+                  type="range"
+                  min="16"
+                  max="64"
+                  step="1"
+                  value="28"
+                />
+                <span class="mono" id="dpSizeLabel">28</span>
+              </div>
+
+              <div class="editStyleRow">
+                <label for="dpFontRange">Number font</label>
+                <input
+                  id="dpFontRange"
+                  type="range"
+                  min="10"
+                  max="36"
+                  step="1"
+                  value="14"
+                />
+                <span class="mono" id="dpFontLabel">14</span>
+              </div>
+
+              <div class="note" style="margin-top: 6px">
+                Tip: In Edit mode, tap a red dot to change its number.
+              </div>
             </div>
           </div>
 
           <div class="note">
-            Tip: Your phone’s compass won’t rotate the map—this view stays
-            north-up. The blue line is your tracked path; red dots are manual
-            “drop points.”
+            Tip: Start/stop the path. After you stop, use Edit to move points
+            and adjust the blue line (drag handles).
           </div>
 
           <div id="mapExportArea" class="mapExportArea" style="display: none">
@@ -489,13 +560,11 @@
       role="dialog"
       aria-modal="true"
     >
-      <!-- unchanged -->
       <div class="sheetHeader">
         <h3>Settings</h3>
         <button id="closeSheetBtn" class="btn" type="button">✖️ Close</button>
       </div>
       <div class="sheetBody">
-        <!-- unchanged -->
         <div class="twoCol">
           <div>
             <label for="cameraSelect">Camera</label>
@@ -518,7 +587,7 @@
             <select id="previewResSelect">
               <option value="1280x720" selected>720p (1280×720)</option>
               <option value="854x480">480p (854×480)</option>
-              <option value="640x360">360p (640×360)</option>
+              <option value="640x360">360p (640x360)</option>
             </select>
           </div>
           <div>
@@ -618,6 +687,12 @@
     <script
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <!-- ✅ Leaflet.draw JS -->
+    <script
+      src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"
       crossorigin=""
     ></script>
 
