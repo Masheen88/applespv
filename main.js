@@ -388,7 +388,11 @@ function showProgress(on) {
 
 function logProgress(line) {
   if (!UI.progressLog) return;
-  UI.progressLog.textContent = (UI.progressLog.textContent + "\n" + line).trim();
+  UI.progressLog.textContent = (
+    UI.progressLog.textContent +
+    "\n" +
+    line
+  ).trim();
   UI.progressLog.scrollTop = UI.progressLog.scrollHeight;
 }
 
@@ -613,39 +617,56 @@ function renderResult(blob, label) {
   setHtml(
     UI.resultArea,
     `
-    <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
-      <span>${label || "Output"}: <span class="mono ${okSize ? "ok" : "warn"}">${fmtMB(
-        blob.size,
-      )}</span></span>
-      <span class="mono">${blob.type || "video/*"}</span>
-    </div>
+      <div
+        class="pill"
+        style="width:100%; justify-content:space-between; margin-bottom:10px;"
+      >
+        <span
+          >${label || "Output"}:
+          <span class="mono ${okSize ? "ok" : "warn"}"
+            >${fmtMB(blob.size)}</span
+          ></span
+        >
+        <span class="mono">${blob.type || "video/*"}</span>
+      </div>
 
-    <div class="pill" style="width:100%; justify-content:space-between; margin-bottom:10px;">
-      <span>GorillaDesk compatible:</span>
-      <span class="mono ${gdOk ? "ok" : "warn"}">${
-        gdOk ? "YES" : "NO (WebM not accepted)"
-      }</span>
-    </div>
+      <div
+        class="pill"
+        style="width:100%; justify-content:space-between; margin-bottom:10px;"
+      >
+        <span>GorillaDesk compatible:</span>
+        <span class="mono ${gdOk ? "ok" : "warn"}"
+          >${gdOk ? "YES" : "NO (WebM not accepted)"}</span
+        >
+      </div>
 
-    <div class="actions tight">
-    <!--
+      <div class="actions tight">
+        <!--
       <a class="btn primary" href="${url}" download="gorilladesk-video.${ext}">⬇️ Save</a>
     -->
-      <a class="btn primary" href="#" id="saveBtn">⬇️ Save</a>
+        // on click run the saveVideo function which will try native share first
+        then save picker then fallback to download
+        <button
+          class="btn primary"
+          id="saveBtn"
+          type="button"
+          onClick="saveVideo(blob, ext)"
+        >
+          ⬇️ Save
+        </button>
 
+        <button class="btn" id="previewBtn" type="button">🎬 Preview</button>
+        <button class="btn" id="shareBtn" type="button">📤 Share</button>
+      </div>
 
-      <button class="btn" id="previewBtn" type="button">🎬 Preview</button>
-      <button class="btn" id="shareBtn" type="button">📤 Share</button>
-    </div>
-
-    ${
-      gdOk
-        ? ""
-        : `<div class="note warn">
+      ${
+        gdOk
+          ? ""
+          : `<div class="note warn">
       This output is WebM. GorillaDesk won’t accept it. Use iPhone Safari over HTTPS (often supports MP4) or use FFmpeg/server conversion.
     </div>`
-    }
-  `,
+      }
+    `,
   );
 
   const previewBtn = $("previewBtn");
@@ -792,7 +813,9 @@ function pickBestBackCameraId(cams) {
   const savedId = lsGet(LS_KEYS.CAMERA_ID, "");
   if (savedId && cams.some((c) => c.deviceId === savedId)) return savedId;
 
-  const byLabel = cams.find((c) => /back|rear|environment/i.test(c.label || ""));
+  const byLabel = cams.find((c) =>
+    /back|rear|environment/i.test(c.label || ""),
+  );
   if (byLabel) return byLabel.deviceId;
 
   const notFront = cams.find((c) => !/front|user/i.test(c.label || ""));
@@ -823,7 +846,9 @@ async function startPreview() {
   stopStream();
   torchOn = false;
 
-  const [w, h] = (UI.previewResSelect?.value || "1280x720").split("x").map(Number);
+  const [w, h] = (UI.previewResSelect?.value || "1280x720")
+    .split("x")
+    .map(Number);
   const fps = Number(UI.fpsSelect?.value) || 30;
 
   const selectedId = UI.cameraSelect?.value || "";
@@ -1218,7 +1243,10 @@ async function transcodeViaCanvas(
   try {
     await UI.xVideo.play();
   } catch (error) {
-    console.error("Video playback failed during conversion (pre-audio):", error);
+    console.error(
+      "Video playback failed during conversion (pre-audio):",
+      error,
+    );
     URL.revokeObjectURL(inputUrl);
     throw new Error("Video playback failed during conversion.");
   }
@@ -1274,7 +1302,9 @@ async function transcodeViaCanvas(
     ]);
   } else {
     // Helpful log so you can see this in the progress console if needed.
-    logProgress("⚠️ No audio track captured for this attempt (video-only output).");
+    logProgress(
+      "⚠️ No audio track captured for this attempt (video-only output).",
+    );
   }
 
   const outMime = bestRecorderMimeForCurrentDevice();
@@ -1489,7 +1519,9 @@ async function compressIteratively(inputBlob) {
 
     // If still under the actual 50MB target, done.
     if (outBlob.size <= targetBytes) {
-      logProgress(`✅ MP4 output produced under limit (≤ ${fmtMB(targetBytes)}).`);
+      logProgress(
+        `✅ MP4 output produced under limit (≤ ${fmtMB(targetBytes)}).`,
+      );
       setText(UI.progressText, "Done");
       if (UI.convBarFill) UI.convBarFill.style.width = "100%";
       setText(UI.convPctLabel, "100%");
@@ -1505,7 +1537,9 @@ async function compressIteratively(inputBlob) {
   // Normal iterative compression (also used for big files, or when MP4 forced output is too big)
   const maxRes = parseWH(UI.convertResSelect?.value || "1280x720");
 
-  const [minResStr, minKbpsStr] = (UI.minQualitySelect?.value || "640x360|250").split("|");
+  const [minResStr, minKbpsStr] = (
+    UI.minQualitySelect?.value || "640x360|250"
+  ).split("|");
   const minRes = parseWH(minResStr);
   const minVideoBps = Number(minKbpsStr) * 1000;
 
@@ -1529,7 +1563,10 @@ async function compressIteratively(inputBlob) {
   let attempt = 0;
   const MAX_ATTEMPTS = 10;
 
-  let { videoBps, audioBps } = computeBitratesForTarget(durationSec, targetBytes);
+  let { videoBps, audioBps } = computeBitratesForTarget(
+    durationSec,
+    targetBytes,
+  );
   videoBps = Math.min(videoBps, 2_000_000);
 
   while (attempt < MAX_ATTEMPTS) {
@@ -1547,7 +1584,9 @@ async function compressIteratively(inputBlob) {
     convLastProgressUpdatePerf = 0;
 
     logProgress(`\n--- Attempt ${attempt} ---`);
-    logProgress(`Try ${outW}x${outH} @ ~${Math.floor(videoBps / 1000)} kbps video`);
+    logProgress(
+      `Try ${outW}x${outH} @ ~${Math.floor(videoBps / 1000)} kbps video`,
+    );
 
     let outBlob;
     try {
@@ -1567,12 +1606,17 @@ async function compressIteratively(inputBlob) {
       outW = next.w;
       outH = next.h;
 
-      ({ videoBps, audioBps } = computeBitratesForTarget(durationSec, targetBytes));
+      ({ videoBps, audioBps } = computeBitratesForTarget(
+        durationSec,
+        targetBytes,
+      ));
       videoBps = Math.max(minVideoBps, Math.min(videoBps, 1_200_000));
       continue;
     }
 
-    logProgress(`Output: ${fmtMB(outBlob.size)} | mime: ${outBlob.type || "unknown"}`);
+    logProgress(
+      `Output: ${fmtMB(outBlob.size)} | mime: ${outBlob.type || "unknown"}`,
+    );
 
     if (outBlob.size <= targetBytes) {
       logProgress(`✅ Success under limit (≤ ${fmtMB(targetBytes)}).`);
@@ -1599,7 +1643,10 @@ async function compressIteratively(inputBlob) {
         );
       }
 
-      ({ videoBps, audioBps } = computeBitratesForTarget(durationSec, targetBytes));
+      ({ videoBps, audioBps } = computeBitratesForTarget(
+        durationSec,
+        targetBytes,
+      ));
       videoBps = Math.max(minVideoBps, Math.min(videoBps, 1_200_000));
       logProgress(
         `Bitrate floor reached → downscaling to ${outW}x${outH}, reset bitrate ~${Math.floor(
@@ -1609,7 +1656,9 @@ async function compressIteratively(inputBlob) {
     }
   }
 
-  throw new Error("Max attempts reached; could not compress under 50MB on this device.");
+  throw new Error(
+    "Max attempts reached; could not compress under 50MB on this device.",
+  );
 }
 
 /********************************************************************
@@ -1625,7 +1674,9 @@ UI.convertBtn?.addEventListener("click", async () => {
   try {
     clearResult();
     showProgress(true);
-    logProgress(`Starting conversion… target ≤ ${fmtMB(MAX_BYTES - SAFETY_BYTES)}`);
+    logProgress(
+      `Starting conversion… target ≤ ${fmtMB(MAX_BYTES - SAFETY_BYTES)}`,
+    );
 
     const out = await compressIteratively(sourceBlob);
 
@@ -1664,7 +1715,9 @@ UI.enableCameraBtn?.addEventListener("click", async () => {
       return;
     }
     if (!isSecureEnoughForCamera()) {
-      alert("On iPhone, camera requires HTTPS. Hosting this page on HTTPS is the best fix.");
+      alert(
+        "On iPhone, camera requires HTTPS. Hosting this page on HTTPS is the best fix.",
+      );
     }
 
     lsSet(LS_KEYS.AUTO_ENABLE_CAMERA, true);
@@ -1672,7 +1725,11 @@ UI.enableCameraBtn?.addEventListener("click", async () => {
     await startPreview();
     await populateCameras();
 
-    if (UI.cameraSelect && !UI.cameraSelect.value && UI.cameraSelect.options[0]) {
+    if (
+      UI.cameraSelect &&
+      !UI.cameraSelect.value &&
+      UI.cameraSelect.options[0]
+    ) {
       UI.cameraSelect.value = UI.cameraSelect.options[0].value;
       lsSet(LS_KEYS.CAMERA_ID, UI.cameraSelect.value);
     }
@@ -1684,7 +1741,9 @@ UI.enableCameraBtn?.addEventListener("click", async () => {
     setText(UI.cameraStateLabel, "Enabled");
   } catch (e) {
     console.error(e);
-    alert("Could not start camera. If you opened from Files on iPhone, host it on HTTPS.");
+    alert(
+      "Could not start camera. If you opened from Files on iPhone, host it on HTTPS.",
+    );
   }
 });
 
@@ -1733,12 +1792,20 @@ UI.minQualitySelect?.addEventListener("change", () => {
  * Combo tab wiring (Video + Plot)
  ********************************************************************/
 function wireComboButtons() {
-  UI.comboEnableCameraBtn?.addEventListener("click", () => UI.enableCameraBtn?.click());
-  UI.comboRecordToggleBtn?.addEventListener("click", () => UI.recordToggleBtn?.click());
+  UI.comboEnableCameraBtn?.addEventListener("click", () =>
+    UI.enableCameraBtn?.click(),
+  );
+  UI.comboRecordToggleBtn?.addEventListener("click", () =>
+    UI.recordToggleBtn?.click(),
+  );
   UI.comboPauseBtn?.addEventListener("click", () => UI.pauseBtn?.click());
 
-  UI.comboStartPathBtn?.addEventListener("click", () => MAP.startTrackBtn?.click());
-  UI.comboDropPointBtn?.addEventListener("click", () => MAP.dropPointBtn?.click());
+  UI.comboStartPathBtn?.addEventListener("click", () =>
+    MAP.startTrackBtn?.click(),
+  );
+  UI.comboDropPointBtn?.addEventListener("click", () =>
+    MAP.dropPointBtn?.click(),
+  );
   UI.comboCenterBtn?.addEventListener("click", () => MAP.mapCenterBtn?.click());
 }
 
@@ -1758,7 +1825,8 @@ function syncComboUI() {
   }
 
   if (UI.comboStartPathBtn && MAP.startTrackBtn) {
-    UI.comboStartPathBtn.textContent = MAP.startTrackBtn.textContent || "▶️ Start path";
+    UI.comboStartPathBtn.textContent =
+      MAP.startTrackBtn.textContent || "▶️ Start path";
     UI.comboStartPathBtn.disabled = !!MAP.startTrackBtn.disabled;
     UI.comboStartPathBtn.className = MAP.startTrackBtn.className;
   }
@@ -1794,10 +1862,12 @@ function restoreSettingsFromStorage() {
   if (UI.fpsSelect && !UI.fpsSelect.value) UI.fpsSelect.value = "30";
 
   const savedPrevRes = lsGet(LS_KEYS.PREVIEW_RES, "");
-  if (savedPrevRes && UI.previewResSelect) UI.previewResSelect.value = savedPrevRes;
+  if (savedPrevRes && UI.previewResSelect)
+    UI.previewResSelect.value = savedPrevRes;
 
   const savedConvRes = lsGet(LS_KEYS.CONVERT_RES, "");
-  if (savedConvRes && UI.convertResSelect) UI.convertResSelect.value = savedConvRes;
+  if (savedConvRes && UI.convertResSelect)
+    UI.convertResSelect.value = savedConvRes;
 
   const savedBitrate = lsGet(LS_KEYS.BITRATE_KBPS, "");
   if (savedBitrate && UI.recordBitrate) UI.recordBitrate.value = savedBitrate;
