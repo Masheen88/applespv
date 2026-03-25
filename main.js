@@ -644,13 +644,12 @@ function renderResult(blob, label) {
         <!--
       <a class="btn primary" href="${url}" download="gorilladesk-video.${ext}">⬇️ Save</a>
     -->
-        // on click run the saveVideo function which will try native share first
-        then save picker then fallback to download
+
         <button
           class="btn primary"
           id="saveBtn"
           type="button"
-          onClick="saveVideo(blob, ext)"
+          onclick="() => saveVideo(blob, ext)"
         >
           ⬇️ Save
         </button>
