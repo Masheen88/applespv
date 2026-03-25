@@ -891,7 +891,7 @@ function renderResult(blob, label) {
 
   setHtml(
     UI.resultArea,
-    html`
+    `
       <div
         class="pill"
         style="width:100%; justify-content:space-between; margin-bottom:10px;"
@@ -921,11 +921,13 @@ function renderResult(blob, label) {
         <!-- <button class="btn" id="shareBtn" type="button">📤 Share</button> -->
       </div>
 
-      ${gdOk
-        ? ""
-        : `<div class="note warn">
+      ${
+        gdOk
+          ? ""
+          : `<div class="note warn">
       This output is WebM. GorillaDesk won’t accept it. Use iPhone Safari over HTTPS (often supports MP4) or use FFmpeg/server conversion.
-    </div>`}
+    </div>`
+      }
     `,
   );
 
