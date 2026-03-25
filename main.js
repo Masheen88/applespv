@@ -607,7 +607,25 @@ async function saveVideo(blob, ext) {
     type: blob.type || "video/mp4",
   });
 
-  // Chromium/Android desktop-style picker
+  const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
+  /**
+   * Trigger a normal browser download.
+   * On Android Chrome this is usually a better "Save" behavior than invoking
+   * the share sheet from the Save button.
+   */
+  function triggerAnchorDownload(urlToDownload) {
+    const a = document.createElement("a");
+    a.href = urlToDownload;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // Best case: true save picker where supported.
   if ("showSaveFilePicker" in globalThis) {
     try {
       const handle = await globalThis.showSaveFilePicker({
@@ -625,48 +643,68 @@ async function saveVideo(blob, ext) {
       await writable.close();
       return;
     } catch (err) {
-      if (err?.name !== "AbortError") {
-        console.error("showSaveFilePicker failed:", err);
+      // If the user cancelled the picker, do not show a failure alert.
+      if (err?.name === "AbortError") {
+        return;
       }
+
+      console.error("showSaveFilePicker failed:", err);
+      // Continue to other fallbacks.
     }
   }
-
-  // Mobile-friendly fallback: use the share sheet first when possible
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({
-      files: [file],
-      title: "Video",
-      text: "Compressed video (≤ 50MB)",
-    });
-    return;
-  }
-
-  const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
-  const isAndroid = /Android/i.test(navigator.userAgent);
 
   const url = URL.createObjectURL(blob);
 
-  // On iPhone / Android browsers, opening the blob is often more reliable
-  // than a fake anchor download.
-  if (isIOS || isAndroid) {
-    const opened = globalThis.open(url, "_blank", "noopener");
-    if (!opened) {
-      globalThis.location.href = url;
+  try {
+    // Android: prefer a direct browser download for the Save button.
+    if (isAndroid) {
+      triggerAnchorDownload(url);
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      return;
     }
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    return;
+
+    // iPhone/iPad: opening the blob is often the most reliable way to let the
+    // user use Share > Save to Files.
+    if (isIOS) {
+      const opened = globalThis.open(url, "_blank", "noopener");
+      if (!opened) {
+        globalThis.location.href = url;
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      return;
+    }
+
+    // Desktop/share-capable fallback.
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: "Video",
+          text: "Compressed video (≤ 50MB)",
+        });
+        URL.revokeObjectURL(url);
+        return;
+      } catch (err) {
+        // User cancelled share: do not treat as a hard failure.
+        if (err?.name === "AbortError") {
+          URL.revokeObjectURL(url);
+          return;
+        }
+
+        console.error("navigator.share failed during save:", err);
+        // Fall through to normal download.
+      }
+    }
+
+    // Desktop default fallback.
+    triggerAnchorDownload(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  } catch (err) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch (_) {}
+    throw err;
   }
-
-  // Desktop fallback
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 function renderResult(blob, label) {
@@ -737,7 +775,7 @@ function renderResult(blob, label) {
     } catch (err) {
       console.error(err);
       alert(
-        "Save failed. On iPhone, the video may open in a new tab so you can use Share > Save to Files.",
+        "Save failed on this browser/device. Try the Share button instead.",
       );
     }
   });
