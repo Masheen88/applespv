@@ -207,12 +207,12 @@ function lsGetBool(key, fallback) {
  * Theme
  ********************************************************************/
 function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.dataset("data-theme", theme);
   localStorage.setItem(LS_KEYS.THEME, theme);
 }
 applyTheme(localStorage.getItem(LS_KEYS.THEME) || "dark");
 UI.themeBtn?.addEventListener("click", () => {
-  const cur = document.documentElement.getAttribute("data-theme") || "dark";
+  const cur = document.documentElement.dataset("data-theme") || "dark";
   applyTheme(cur === "dark" ? "light" : "dark");
 });
 
@@ -347,8 +347,8 @@ function setMode(next) {
   UI.tabUpload?.classList.toggle("active", !isRecord);
   UI.cameraGroup?.classList.toggle("active", isRecord);
 
-  UI.tabRecord?.setAttribute("aria-selected", isRecord ? "true" : "false");
-  UI.tabUpload?.setAttribute("aria-selected", !isRecord ? "true" : "false");
+  UI.tabRecord?.dataset("aria-selected", isRecord ? "true" : "false");
+  UI.tabUpload?.dataset("aria-selected", !isRecord ? "true" : "false");
 
   //TODO if upload don't show id cameraGroup else show it toggle it by that id
   showInline(UI.cameraGroup, isRecord);
@@ -514,7 +514,7 @@ function closePreviewModal() {
   }
   UI.videoModal.dataset.tempUrl = "";
 
-  UI.videoModal.setAttribute("inert", "");
+  UI.videoModal.dataset("inert", "");
   UI.videoModal.hidden = true;
   UI.modalOverlay.hidden = true;
 }
@@ -529,14 +529,14 @@ function openSheet() {
   if (!UI.sheetOverlay || !UI.sheet) return;
   UI.sheetOverlay.style.display = "block";
   UI.sheet.style.transform = "translateY(0)";
-  UI.sheet.setAttribute("aria-hidden", "false");
+  UI.sheet.dataset("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 }
 function closeSheet() {
   if (!UI.sheetOverlay || !UI.sheet) return;
   UI.sheetOverlay.style.display = "none";
   UI.sheet.style.transform = "translateY(110%)";
-  UI.sheet.setAttribute("aria-hidden", "true");
+  UI.sheet.dataset("aria-hidden", "true");
   document.body.style.overflow = "";
 }
 
@@ -554,15 +554,14 @@ document.addEventListener("keydown", (e) => {
 /********************************************************************
  * Render result (Save + Preview + Share grouped)
  ********************************************************************/
-async function saveVideo(blob, ext) {
+async function shareVideo(blob, ext) {
   const file = new File([blob], `gorilladesk-video.${ext}`, {
     type: blob.type || "video/*",
   });
 
-  // Best mobile UX: native share sheet
   if (
-    navigator.canShare &&
     navigator.share &&
+    navigator.canShare &&
     navigator.canShare({ files: [file] })
   ) {
     await navigator.share({
@@ -573,33 +572,59 @@ async function saveVideo(blob, ext) {
     return;
   }
 
-  // Best desktop / supported-browser UX: save picker
-  if ("showSaveFilePicker" in window) {
-    const handle = await window.showSaveFilePicker({
-      suggestedName: `gorilladesk-video.${ext}`,
-      types: [
-        {
-          description: "Video file",
-          accept: { [blob.type || "video/mp4"]: [`.${ext}`] },
-        },
-      ],
-    });
+  throw new Error("File sharing is not supported on this device/browser.");
+}
 
-    const writable = await handle.createWritable();
-    await writable.write(blob);
-    await writable.close();
-    return;
+async function saveVideo(blob, ext) {
+  const filename = `gorilladesk-video.${ext}`;
+
+  // Chromium/Android best case: real save picker
+  if ("showSaveFilePicker" in globalThis) {
+    try {
+      const handle = await globalThis.showSaveFilePicker({
+        suggestedName: filename,
+        types: [
+          {
+            description: "Video file",
+            accept: { [blob.type || "video/mp4"]: [`.${ext}`] },
+          },
+        ],
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (err) {
+      // User cancel is normal; only fall through for actual fallback behavior.
+      if (err?.name !== "AbortError") {
+        console.error("showSaveFilePicker failed:", err);
+      }
+    }
   }
 
-  // Fallback: regular browser download
+  // Generic browser fallback: direct download attempt
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    return;
+  } catch (err) {
+    console.error("anchor download failed:", err);
+  }
+
+  // iPhone / restrictive-browser last resort:
+  // open the file so the user can use the browser's share/save UI.
   const url = URL.createObjectURL(blob);
-const a = document.createElement("a");
-a.href = url;
-a.download = `gorilladesk-video.${ext}`;
-document.body.appendChild(a);
-a.click();
-a.remove();
-setTimeout(() => URL.revokeObjectURL(url), 1000);
+  globalThis.open(url, "_blank", "noopener");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function renderResult(blob, label) {
@@ -669,35 +694,47 @@ function renderResult(blob, label) {
       await saveVideo(blob, ext);
     } catch (err) {
       console.error(err);
-      alert("Save failed on this device/browser. Try Share instead.");
+      alert(
+        "Save failed. On iPhone, the video may open in a new tab so you can use Share > Save to Files.",
+      );
     }
   });
 
   const previewBtn = $("previewBtn");
   previewBtn?.addEventListener("click", () => openPreviewModal(blob, label));
 
+  // const shareBtn = $("shareBtn");
+  // shareBtn?.addEventListener("click", async () => {
+  //   try {
+  //     const file = new File([blob], `gorilladesk-video.${ext}`, {
+  //       type: blob.type || "video/*",
+  //     });
+  //     if (
+  //       navigator.canShare &&
+  //       navigator.canShare({ files: [file] }) &&
+  //       navigator.share
+  //     ) {
+  //       await navigator.share({
+  //         files: [file],
+  //         title: "Video",
+  //         text: "Compressed video (≤ 50MB)",
+  //       });
+  //     } else {
+  //       alert("Share is not supported here. Use Save instead.");
+  //     }
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert("Share failed on this device/browser. Use Save instead.");
+  //   }
+  // });
+
   const shareBtn = $("shareBtn");
   shareBtn?.addEventListener("click", async () => {
     try {
-      const file = new File([blob], `gorilladesk-video.${ext}`, {
-        type: blob.type || "video/*",
-      });
-      if (
-        navigator.canShare &&
-        navigator.canShare({ files: [file] }) &&
-        navigator.share
-      ) {
-        await navigator.share({
-          files: [file],
-          title: "Video",
-          text: "Compressed video (≤ 50MB)",
-        });
-      } else {
-        alert("Share is not supported here. Use Save instead.");
-      }
+      await shareVideo(blob, ext);
     } catch (err) {
       console.error(err);
-      alert("Share failed on this device/browser. Use Save instead.");
+      alert("Share failed on this device/browser.");
     }
   });
 }
