@@ -581,24 +581,108 @@ document.addEventListener("keydown", (e) => {
  * Render result (Save + Preview + Share grouped)
  ********************************************************************/
 async function shareVideo(blob, ext) {
-  const file = new File([blob], `gorilladesk-video.${ext}`, {
-    type: blob.type || "video/*",
+  const filename = `gorilladesk-video.${ext}`;
+  const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent);
+  const isAndroid = /Android/i.test(navigator.userAgent);
+
+  /**
+   * Normalize the MIME type.
+   * Using "video/*" is too generic for canShare() on some browsers/devices.
+   */
+  const normalizedType =
+    blob.type && blob.type !== "video/*"
+      ? blob.type
+      : ext === "mp4"
+        ? "video/mp4"
+        : ext === "mov"
+          ? "video/quicktime"
+          : ext === "webm"
+            ? "video/webm"
+            : "application/octet-stream";
+
+  const file = new File([blob], filename, {
+    type: normalizedType,
   });
 
+  const shareData = {
+    files: [file],
+    title: "Video",
+    text: "Compressed video (≤ 50MB)",
+  };
+
+  /**
+   * Helpful diagnostics while testing on phones.
+   */
+  console.log("shareVideo diagnostics", {
+    secureContext: globalThis.isSecureContext,
+    hasShare: typeof navigator.share === "function",
+    hasCanShare: typeof navigator.canShare === "function",
+    blobType: blob.type || "(empty)",
+    normalizedType,
+    ext,
+    size: blob.size,
+    canShareFiles:
+      typeof navigator.canShare === "function"
+        ? navigator.canShare(shareData)
+        : false,
+  });
+
+  /**
+   * Best case: native file share.
+   */
   if (
-    navigator.share &&
-    navigator.canShare &&
-    navigator.canShare({ files: [file] })
+    typeof navigator.share === "function" &&
+    typeof navigator.canShare === "function" &&
+    navigator.canShare(shareData)
   ) {
-    await navigator.share({
-      files: [file],
-      title: "Video",
-      text: "Compressed video (≤ 50MB)",
-    });
+    try {
+      await navigator.share(shareData);
+      return;
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        return;
+      }
+
+      console.error("navigator.share(file) failed:", err);
+      // Fall through to mobile/browser fallbacks below.
+    }
+  }
+
+  /**
+   * iPhone/iPad fallback:
+   * open the generated video so the user can use the browser/player Share UI there.
+   */
+  if (isIOS) {
+    const url = URL.createObjectURL(blob);
+    const opened = globalThis.open(url, "_blank", "noopener");
+    if (!opened) {
+      globalThis.location.href = url;
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
     return;
   }
 
-  throw new Error("File sharing is not supported on this device/browser.");
+  /**
+   * Android fallback:
+   * when file-share is unavailable for the generated blob, the reliable fallback
+   * is to download it and let the user share it from Downloads/Files/Photos.
+   */
+  if (isAndroid) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    return;
+  }
+
+  throw new Error(
+    "Native file sharing is not supported for this generated video on this device/browser.",
+  );
 }
 
 async function saveVideo(blob, ext) {
@@ -783,38 +867,15 @@ function renderResult(blob, label) {
   const previewBtn = $("previewBtn");
   previewBtn?.addEventListener("click", () => openPreviewModal(blob, label));
 
-  // const shareBtn = $("shareBtn");
-  // shareBtn?.addEventListener("click", async () => {
-  //   try {
-  //     const file = new File([blob], `gorilladesk-video.${ext}`, {
-  //       type: blob.type || "video/*",
-  //     });
-  //     if (
-  //       navigator.canShare &&
-  //       navigator.canShare({ files: [file] }) &&
-  //       navigator.share
-  //     ) {
-  //       await navigator.share({
-  //         files: [file],
-  //         title: "Video",
-  //         text: "Compressed video (≤ 50MB)",
-  //       });
-  //     } else {
-  //       alert("Share is not supported here. Use Save instead.");
-  //     }
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert("Share failed on this device/browser. Use Save instead.");
-  //   }
-  // });
-
   const shareBtn = $("shareBtn");
   shareBtn?.addEventListener("click", async () => {
     try {
       await shareVideo(blob, ext);
     } catch (err) {
       console.error(err);
-      alert("Share failed on this device/browser.");
+      alert(
+        "Share is not available for this generated video on this browser/device. Use Save, then share it from Files, Photos, or Downloads.",
+      );
     }
   });
 }
