@@ -254,8 +254,37 @@ let convAttemptStartPerf = 0;
 let convLastProgressUpdatePerf = 0;
 
 /********************************************************************
+ * Attribute helpers
+ ********************************************************************/
+function setAttr(el, name, value) {
+  if (!el) return;
+  el.setAttribute(name, String(value));
+}
+
+function getAttr(el, name, fallback = "") {
+  if (!el) return fallback;
+  return el.getAttribute(name) ?? fallback;
+}
+
+/********************************************************************
+ * Theme
+ ********************************************************************/
+function applyTheme(theme) {
+  setAttr(document.documentElement, "data-theme", theme);
+  localStorage.setItem(LS_KEYS.THEME, theme);
+}
+
+applyTheme(localStorage.getItem(LS_KEYS.THEME) || "dark");
+
+UI.themeBtn?.addEventListener("click", () => {
+  const cur = getAttr(document.documentElement, "data-theme", "dark");
+  applyTheme(cur === "dark" ? "light" : "dark");
+});
+
+/********************************************************************
  * Helpers
  ********************************************************************/
+
 function fmtMB(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
@@ -347,12 +376,10 @@ function setMode(next) {
   UI.tabUpload?.classList.toggle("active", !isRecord);
   UI.cameraGroup?.classList.toggle("active", isRecord);
 
-  UI.tabRecord?.dataset("aria-selected", isRecord ? "true" : "false");
-  UI.tabUpload?.dataset("aria-selected", !isRecord ? "true" : "false");
+  setAttr(UI.tabRecord, "aria-selected", isRecord ? "true" : "false");
+  setAttr(UI.tabUpload, "aria-selected", !isRecord ? "true" : "false");
 
-  //TODO if upload don't show id cameraGroup else show it toggle it by that id
   showInline(UI.cameraGroup, isRecord);
-
   showInline(UI.recordPanel, isRecord);
   showInline(UI.uploadPanel, !isRecord);
 
@@ -514,7 +541,7 @@ function closePreviewModal() {
   }
   UI.videoModal.dataset.tempUrl = "";
 
-  UI.videoModal.dataset("inert", "");
+  setAttr(UI.videoModal, "inert", "");
   UI.videoModal.hidden = true;
   UI.modalOverlay.hidden = true;
 }
@@ -529,14 +556,15 @@ function openSheet() {
   if (!UI.sheetOverlay || !UI.sheet) return;
   UI.sheetOverlay.style.display = "block";
   UI.sheet.style.transform = "translateY(0)";
-  UI.sheet.dataset("aria-hidden", "false");
+  setAttr(UI.sheet, "aria-hidden", "false");
   document.body.style.overflow = "hidden";
 }
+
 function closeSheet() {
   if (!UI.sheetOverlay || !UI.sheet) return;
   UI.sheetOverlay.style.display = "none";
   UI.sheet.style.transform = "translateY(110%)";
-  UI.sheet.dataset("aria-hidden", "true");
+  setAttr(UI.sheet, "aria-hidden", "true");
   document.body.style.overflow = "";
 }
 
