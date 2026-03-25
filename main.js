@@ -546,6 +546,52 @@ document.addEventListener("keydown", (e) => {
 /********************************************************************
  * Render result (Save + Preview + Share grouped)
  ********************************************************************/
+async function saveVideo(blob, ext) {
+  const file = new File([blob], `gorilladesk-video.${ext}`, {
+    type: blob.type || "video/*",
+  });
+
+  // Best mobile UX: native share sheet
+  if (
+    navigator.canShare &&
+    navigator.share &&
+    navigator.canShare({ files: [file] })
+  ) {
+    await navigator.share({
+      files: [file],
+      title: "Video",
+      text: "Compressed video (≤ 50MB)",
+    });
+    return;
+  }
+
+  // Best desktop / supported-browser UX: save picker
+  if ("showSaveFilePicker" in window) {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: `gorilladesk-video.${ext}`,
+      types: [
+        {
+          description: "Video file",
+          accept: { [blob.type || "video/mp4"]: [`.${ext}`] },
+        },
+      ],
+    });
+
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return;
+  }
+
+  // Fallback: regular browser download
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `gorilladesk-video.${ext}`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function renderResult(blob, label) {
   lastResultBlob = blob;
   lastResultLabel = label || "Output";
@@ -578,7 +624,12 @@ function renderResult(blob, label) {
     </div>
 
     <div class="actions tight">
+    <!--
       <a class="btn primary" href="${url}" download="gorilladesk-video.${ext}">⬇️ Save</a>
+    -->
+      <a class="btn primary" href="#" id="saveBtn">⬇️ Save</a>
+
+
       <button class="btn" id="previewBtn" type="button">🎬 Preview</button>
       <button class="btn" id="shareBtn" type="button">📤 Share</button>
     </div>
