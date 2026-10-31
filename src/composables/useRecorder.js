@@ -81,7 +81,7 @@ export function useRecorder(settings) {
   }
 
   async function enableCamera() {
-    if (recording.value || status.value === 'finalizing') return;
+    if (recording.value || status.value === 'finalizing' || status.value === 'loading') return;
     error.value = '';
     hint.value = '';
     if (!supported) { error.value = 'This browser does not support camera recording with MediaRecorder.'; return; }
@@ -139,6 +139,9 @@ export function useRecorder(settings) {
       const activeId = currentTrack?.getSettings?.().deviceId;
       if (activeId) settings.cameraId = activeId;
     } catch (cause) {
+      // A previous request may reject after the user has reopened or turned OFF
+      // the camera. Do not overwrite a newer request's stream/status or error.
+      if (sessionId !== activeRequestId) return;
       status.value = 'idle';
       error.value = `Could not open camera: ${cause?.message || 'Permission denied or camera unavailable.'}`;
     }

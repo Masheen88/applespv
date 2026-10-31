@@ -88,6 +88,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKey));
               Record microphone audio
               <input v-model="settings.microphone" type="checkbox" :disabled="recording" class="h-4 w-4 accent-emerald-400" />
             </label>
+            <!-- Saved per browser; permission remains controlled by iOS/Android. -->
+            <label class="flex items-center justify-between gap-2.5 rounded-xl border border-edge px-3 py-2.5 text-sm text-slate-300">
+              <span class="min-w-0">
+                <span class="block font-medium text-white">Open camera on next visit</span>
+                <span class="mt-0.5 block text-xs leading-relaxed text-slate-400">Remember my camera ON/OFF choice on this phone.</span>
+              </span>
+              <input v-model="settings.autoOpenCamera" type="checkbox" class="h-4 w-4 shrink-0 accent-emerald-400" aria-label="Open camera automatically on future visits" />
+            </label>
+            <p class="text-xs leading-relaxed text-slate-400">Enabling the camera turns this on; selecting Camera Off turns it off. Browser permission may still be requested, and iPhone Safari may need a tap to show the preview.</p>
             <p class="flex gap-2 text-xs leading-relaxed text-slate-400"><Info :size="15" class="shrink-0 mt-0.5" /> Changes to camera/audio/resolution take effect after restarting the preview. Recording settings are locked while capturing.</p>
           </section>
 

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import {
   Aperture,
   Camera,
@@ -171,6 +171,31 @@ const liveFileFormat = computed(() =>
   extensionForMime(capture.mime.value).toUpperCase(),
 );
 
+// The preference records the user's camera ON/OFF choice, not browser permission.
+// Browsers retain control over camera access; a stored preference cannot bypass a
+// permission prompt, iOS restrictions, or a paused camera after screen locking.
+async function openCamera() {
+  await capture.enableCamera();
+  // Only remember ON after a camera stream actually opens successfully.
+  // Permission-denied attempts must not silently become a persistent ON state.
+  if (capture.cameraStream.value) settings.autoOpenCamera = true;
+}
+
+function closeCamera() {
+  // Turning the preview OFF is an explicit choice that survives a reload.
+  capture.shutCamera();
+  settings.autoOpenCamera = false;
+}
+
+onMounted(() => {
+  // The video element is mounted before we request a live stream. An automatic
+  // request might still be blocked or require a user tap (especially on iOS).
+  // Never start a recording just because the technician reopened the app.
+  if (settings.autoOpenCamera && capture.supported && capture.secure) {
+    void capture.enableCamera();
+  }
+});
+
 async function applySettings() {
   settingsOpen.value = false;
   if (cameraEnabled.value && !recording.value) await capture.enableCamera();
@@ -228,7 +253,7 @@ onBeforeUnmount(() => {
             <h1
               class="font-bold text-white text-sm sm:text-base leading-tight tracking-tight"
             >
-              AEPMS Capture <span class="text-mint">/ Studio</span>
+              SPV Capture <span class="text-mint">/ Studio</span>
             </h1>
             <p class="text-[11px] text-slate-400 truncate">
               Mobile video recorder &amp; compressor
@@ -331,6 +356,13 @@ onBeforeUnmount(() => {
                     Use a modern Safari/Chrome browser with camera and
                     MediaRecorder support.
                   </p>
+                  <p
+                    v-if="capture.error.value"
+                    class="max-w-xs text-[11px] text-amber-200 leading-snug"
+                    role="alert"
+                  >
+                    {{ capture.error.value }}
+                  </p>
                   <button
                     type="button"
                     class="button-primary"
@@ -339,7 +371,7 @@ onBeforeUnmount(() => {
                       !capture.supported ||
                       !capture.secure
                     "
-                    @click="capture.enableCamera"
+                    @click="openCamera"
                   >
                     <LoaderCircle
                       v-if="capture.status.value === 'loading'"
@@ -653,7 +685,7 @@ onBeforeUnmount(() => {
                 class="button-quiet"
                 type="button"
                 :disabled="recording || isFinalizing"
-                @click="capture.enableCamera"
+                @click="openCamera"
               >
                 <RotateCcw :size="15" />{{
                   cameraEnabled ? "Restart camera" : "Open camera"
@@ -664,7 +696,7 @@ onBeforeUnmount(() => {
                 class="button-quiet"
                 type="button"
                 :disabled="recording || isFinalizing"
-                @click="capture.shutCamera"
+                @click="closeCamera"
               >
                 <CameraOff :size="15" /> Off
               </button>
@@ -682,6 +714,7 @@ onBeforeUnmount(() => {
                 }}
               </button>
             </div>
+
             <label
               v-if="capture.zoomRange.value"
               class="flex items-center gap-2 mt-3 text-slate-400 text-xs"
@@ -717,7 +750,7 @@ onBeforeUnmount(() => {
           <div ref="captureResultArea">
             <ResultCard
               :blob="capture.result.value"
-              label="aepms-capture"
+              label="spv-capture"
               :notice="
                 capture.result.value && capture.result.value.size <= LIMIT_BYTES
                   ? 'The recording was already encoded during capture. No second compression pass needed.'
@@ -731,11 +764,22 @@ onBeforeUnmount(() => {
 
         <aside class="space-y-3 min-w-0">
           <section v-if="liveFileFormat !== 'MP4'" class="card-surface">
+            <div class="flex items-center gap-2 mb-2">
+              <CheckCircle :size="18" class="text-mint" />
+              <h2 class="font-semibold text-white text-sm">
+                Ready for your workflow
+              </h2>
+            </div>
             <p class="text-slate-400 text-xs leading-relaxed">
-              Recordings are encoded at the chosen bitrate as it happens. Stop
-              recording and the file is already compressed and ready to save.
+              Camera recording is encoded at the chosen bitrate as it happens.
+              Stop recording and the file is already compressed and ready to
+              save.
             </p>
-
+            <div class="flex flex-wrap gap-2 mt-3">
+              <span class="chip">On-device</span
+              ><span class="chip">No maps</span
+              ><span class="chip">50 MB guard</span>
+            </div>
             <div
               v-if="liveFileFormat !== 'MP4'"
               class="mt-3 text-amber-200 feedback-note"
@@ -762,7 +806,9 @@ onBeforeUnmount(() => {
                 <FolderOpen :size="19" />
               </div>
             </div>
+            <label for="file-input" class="sr-only">Choose a video file</label>
             <input
+              id="file-input"
               ref="fileInput"
               class="sr-only"
               type="file"
@@ -794,6 +840,8 @@ onBeforeUnmount(() => {
                   >
                 </p>
               </div>
+
+              <!--  -->
               <video
                 v-if="compressor.previewUrl.value"
                 :src="compressor.previewUrl.value"
@@ -868,7 +916,9 @@ onBeforeUnmount(() => {
               v-if="!compressor.file.value && !compressor.busy.value"
               class="mt-3 text-slate-500 text-xs leading-relaxed"
             >
-              Useful for larger videos you need to compress.
+              Use this only for videos you already have or recordings that
+              exceed the limit. Conversion runs in real time and stays on your
+              device.
             </p>
             <button
               v-if="compressor.file.value && !compressor.busy.value"
@@ -881,7 +931,7 @@ onBeforeUnmount(() => {
           </section>
           <ResultCard
             :blob="compressor.result.value"
-            label="aepms-compressed"
+            label="spv-compressed"
             :notice="compressor.notice.value"
             @discard="compressor.result.value = null"
             @recompress="

@@ -1,6 +1,6 @@
 {
-  "name": "AEPMS Capture Studio",
-  "short_name": "AEPMS Capture",
+  "name": "SPV Capture Studio",
+  "short_name": "SPV Capture",
   "description": "On-device video recording and 50 MB video compression",
   "start_url": "/",
   "scope": "/",
@@ -8,17 +8,7 @@
   "background_color": "#0b111c",
   "theme_color": "#101827",
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
