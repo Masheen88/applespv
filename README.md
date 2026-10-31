@@ -1,4 +1,4 @@
-# SPV Capture Studio — Vue 3 + Vite + Tailwind
+# AEPMS Video Studio — Vue 3 + Vite + Tailwind
 
 Mobile-first rewrite of the uploaded AppleSPV web application. The old Leaflet, drawing, combination mode, and map export code have been removed. This rewrite keeps camera capture and video compression, while consolidating everything into one responsive workspace. Relevant original code comments and algorithm explanations have been carried forward into the corresponding modules; comments for deleted map functionality are intentionally excluded.
 
@@ -49,10 +49,10 @@ The live camera now carries all four primary actions **directly over the image**
 
 The upper-right **Expand** button makes the camera fill the available screen. To keep control overlays accessible:
 
-- **Android Chrome / compatible iPads**: use native *element* fullscreen when available, including all HTML overlays; if fullscreen is rejected, fall back to fixed viewport mode.
-- **iPhone Safari**: use a fixed `100dvh` *app-immersive* layout. iPhone native *video* fullscreen replaces the whole page with the native player and would hide Record/Pause/Stop/Reset; we intentionally **never** call `webkitEnterFullscreen()` for the camera. Safari's browser bars can remain visible — this is an iOS browser restriction, not a broken toggle. Add the web app to the iPhone Home Screen to run it in a standalone window without Safari tab controls. Not a native iOS IPA.
+- **Android Chrome / compatible iPads**: use native _element_ fullscreen when available, including all HTML overlays; if fullscreen is rejected, fall back to fixed viewport mode.
+- **iPhone Safari**: use a fixed `100dvh` _app-immersive_ layout. iPhone native _video_ fullscreen replaces the whole page with the native player and would hide Record/Pause/Stop/Reset; we intentionally **never** call `webkitEnterFullscreen()` for the camera. Safari's browser bars can remain visible — this is an iOS browser restriction, not a broken toggle. Add the web app to the iPhone Home Screen to run it in a standalone window without Safari tab controls. Not a native iOS IPA.
 - **iOS video**: uses `playsinline`, `webkit-playsinline`, autoplay muted preview, an HTTPS permission request, and Safari's native MP4-capable `MediaRecorder` where available. The recorder retries with browser-selected encoding when an explicit MIME/codec is rejected. Share uses the iOS Share Sheet when supported; on iPhone that is generally the easiest way to **Save to Files**.
-- **Known platform constraints**: mobile browsers can ignore requested bitrates, delay encoded chunks, deny camera access in split-screen, and suspend capture when backgrounded/locked. 46 MB is a conservative early-stop *target*, **not** a guaranteed hard cap. Keep the screen awake, review the actual size, and test on the specific iOS/Android devices used by technicians. Pause/resume is subject to browser `MediaRecorder` support.
+- **Known platform constraints**: mobile browsers can ignore requested bitrates, delay encoded chunks, deny camera access in split-screen, and suspend capture when backgrounded/locked. 46 MB is a conservative early-stop _target_, **not** a guaranteed hard cap. Keep the screen awake, review the actual size, and test on the specific iOS/Android devices used by technicians. Pause/resume is subject to browser `MediaRecorder` support.
 
 ### iPhone deployment
 

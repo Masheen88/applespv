@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
             <h1
               class="font-bold text-white text-sm sm:text-base leading-tight tracking-tight"
             >
-              SPV Capture <span class="text-mint">/ Studio</span>
+              <span class="text-mint"> AEPMS Video </span>
             </h1>
             <p class="text-[11px] text-slate-400 truncate">
               Mobile video recorder &amp; compressor
@@ -676,9 +676,9 @@ onBeforeUnmount(() => {
           <section class="card-surface" aria-label="Additional camera options">
             <div class="flex justify-between items-center mb-2">
               <h2 class="font-bold text-white text-sm">Camera options</h2>
-              <span class="text-[11px] text-slate-400"
+              <!-- <span class="text-[11px] text-slate-400"
                 >Record · Pause · Stop · Reset above</span
-              >
+              > -->
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <button
