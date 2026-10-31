@@ -2,79 +2,419 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color-scheme: dark; font-synthesis: none; }
-* { -webkit-tap-highlight-color: transparent; }
-html { background: #0b111c; }
-body { margin: 0; min-width: 280px; }
-button { touch-action: manipulation; }
-input, select, textarea { font-size: 16px; }
-.app-root { background: radial-gradient(ellipse 100% 450px at 50% -180px, #18344c 0%, transparent 85%), #0b111c; }
-.app-header { position: relative; z-index: 20; border-bottom: 1px solid #2b394c; background: #101827eb; backdrop-filter: blur(12px); }
-.workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
-@media(min-width: 920px) { .workspace-grid { grid-template-columns: minmax(0, 1.5fr) minmax(310px, .8fr); gap: 16px; } }
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color-scheme: dark;
+  font-synthesis: none;
+}
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+html {
+  background: #0b111c;
+}
+body {
+  margin: 0;
+  min-width: 280px;
+}
+button {
+  touch-action: manipulation;
+}
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+.app-root {
+  background:
+    radial-gradient(
+      ellipse 100% 450px at 50% -180px,
+      #18344c 0%,
+      transparent 85%
+    ),
+    #0b111c;
+}
+.app-header {
+  position: relative;
+  z-index: 20;
+  border-bottom: 1px solid #2b394c;
+  background: #101827eb;
+  backdrop-filter: blur(12px);
+}
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+@media (min-width: 920px) {
+  .workspace-grid {
+    grid-template-columns: minmax(0, 1.5fr) minmax(310px, 0.8fr);
+    gap: 16px;
+  }
+}
 /* In Android split-screen the camera section stays visible while scrolling to
    edit address notes. It remains normal-flow in taller/desktop windows. */
 @media (max-width: 919px) and (max-height: 620px) {
-  .camera-primary { position: sticky; top: 0; z-index: 12; }
-  .camera-primary .camera-frame { height: clamp(104px, 29dvh, 165px); }
-  .camera-primary .camera-frame ~ * { display: none; }
+  .camera-primary {
+    position: sticky;
+    top: 0;
+    z-index: 12;
+  }
+  .camera-primary .camera-frame {
+    height: clamp(104px, 29dvh, 165px);
+  }
+  .camera-primary .camera-frame ~ * {
+    display: none;
+  }
 }
-.camera-wrap { position: relative; }
-.camera-frame { position: relative; isolation: isolate; height: clamp(152px, 40dvh, 475px); width: 100%; overflow: hidden; background: #05080c; }
-@media (min-width: 920px) { .camera-frame { height: clamp(290px, 48dvh, 540px); } }
-@media (max-height: 450px) and (max-width: 919px) { .camera-frame { height: clamp(120px, 35dvh, 205px); } }
+.camera-wrap {
+  position: relative;
+}
+.camera-frame {
+  position: relative;
+  isolation: isolate;
+  height: clamp(152px, 40dvh, 475px);
+  width: 100%;
+  overflow: hidden;
+  background: #05080c;
+}
+@media (min-width: 920px) {
+  .camera-frame {
+    height: clamp(290px, 48dvh, 540px);
+  }
+}
+@media (max-height: 450px) and (max-width: 919px) {
+  .camera-frame {
+    height: clamp(120px, 35dvh, 205px);
+  }
+}
 @layer components {
-  .card-surface { @apply rounded-2xl border border-edge bg-panel p-3.5 sm:p-4; }
-  .section-kicker { @apply text-[10px] font-semibold uppercase tracking-[.13em] text-slate-400; }
-  .icon-button { @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-edge text-slate-300 transition hover:border-slate-500 hover:bg-white/5 hover:text-white disabled:opacity-40; }
-  .button-primary { @apply inline-flex items-center justify-center gap-2 rounded-xl bg-mint px-3.5 py-2.5 text-[13px] font-bold text-[#08221b] transition hover:bg-[#8df4ce] disabled:cursor-not-allowed disabled:opacity-35; }
-  .button-secondary { @apply inline-flex items-center justify-center gap-2 rounded-xl border border-edge bg-white/[.055] px-3.5 py-2.5 text-[13px] font-semibold text-slate-100 transition hover:bg-white/[.1] disabled:cursor-not-allowed disabled:opacity-35; }
-  .button-quiet { @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-white/[.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-35; }
-  .chip { @apply inline-flex items-center gap-1.5 rounded-lg border border-edge bg-white/[.03] px-2 py-1 text-[11px] text-slate-300 tabular-nums; }
-  .hud-chip { @apply rounded-md border border-white/15 bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur; }
-  .field { @apply flex min-w-0 flex-col gap-1.5 text-xs font-medium text-slate-400; }
-  .field input:not([type=range]):not([type=checkbox]), .field select, .field textarea { @apply w-full min-w-0 rounded-lg border border-edge bg-[#0e1623] px-2.5 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-mint/70 disabled:opacity-50; }
-  .feedback-error { @apply flex gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-3 py-2.5 text-xs leading-relaxed text-red-200; }
-  .feedback-note { @apply flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[.065] px-3 py-2.5 text-xs leading-relaxed text-amber-100; }
+  .card-surface {
+    @apply bg-panel p-3.5 sm:p-4 border border-edge rounded-2xl;
+  }
+  .section-kicker {
+    @apply font-semibold text-[10px] text-slate-400 uppercase tracking-[.13em];
+  }
+  .icon-button {
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-edge text-slate-300 transition hover:border-slate-500 hover:bg-white/5 hover:text-white disabled:opacity-40;
+  }
+  .button-primary {
+    @apply inline-flex justify-center items-center gap-2 bg-mint hover:bg-[#8df4ce] disabled:opacity-35 px-3.5 py-2.5 rounded-xl font-bold text-[#08221b] text-[13px] transition disabled:cursor-not-allowed;
+  }
+  .button-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-edge bg-white/[.055] px-3.5 py-2.5 text-[13px] font-semibold text-slate-100 transition hover:bg-white/[.1] disabled:cursor-not-allowed disabled:opacity-35;
+  }
+  .button-quiet {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-white/[.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-35;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-edge bg-white/[.03] px-2 py-1 text-[11px] text-slate-300 tabular-nums;
+  }
+  .hud-chip {
+    @apply rounded-md border border-white/15 bg-black/60 px-2 py-1 text-[11px] font-medium text-white backdrop-blur;
+  }
+  .field {
+    @apply flex flex-col gap-1.5 min-w-0 font-medium text-slate-400 text-xs;
+  }
+  .field input:not([type="range"]):not([type="checkbox"]),
+  .field select,
+  .field textarea {
+    @apply w-full min-w-0 rounded-lg border border-edge bg-[#0e1623] px-2.5 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-mint/70 disabled:opacity-50;
+  }
+  .feedback-error {
+    @apply flex gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-3 py-2.5 text-xs leading-relaxed text-red-200;
+  }
+  .feedback-note {
+    @apply flex gap-2 rounded-xl border border-amber-300/20 bg-amber-300/[.065] px-3 py-2.5 text-xs leading-relaxed text-amber-100;
+  }
 }
-@media (max-width: 359px) { .address-card { padding: 10px; } .button-primary, .button-secondary { padding-left: 8px; padding-right: 8px; } }
-@media (prefers-reduced-motion: reduce) { *,*::before,*::after { transition-duration: 0ms !important; animation-duration: 0ms !important; } }
+@media (max-width: 359px) {
+  .address-card {
+    padding: 10px;
+  }
+  .button-primary,
+  .button-secondary {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}
 
 /* The preview itself never enters iPhone's native video player: iOS native
    video fullscreen removes all our HTML control overlays. A CSS-immersive
    layout covers the app's viewport on iPhone and on devices denying the
    element Fullscreen API. On Android/iPad the section also supports :fullscreen. */
-.camera-video { position:absolute; inset:0; height:100%; width:100%; object-fit:contain; background:#020407; }
-.camera-top-hud { position:absolute; z-index:5; inset:0 0 auto; padding:10px; display:flex; align-items:flex-start; justify-content:space-between; gap:8px; pointer-events:none; background:linear-gradient(to bottom,rgba(0,0,0,.53),transparent); }
-.camera-status { display:inline-flex; gap:7px; align-items:center; padding:8px 10px; min-height:36px; max-width:calc(100% - 56px); border-radius:999px; background:rgba(5,11,18,.75); border:1px solid rgba(255,255,255,.15); color:#edf6fa; font-size:11px; font-weight:700; white-space:nowrap; backdrop-filter:blur(9px); }
-.camera-status--active { border-color:rgba(248,113,113,.5); }
-.camera-fullscreen-button { pointer-events:auto; display:grid; place-items:center; min-width:44px; min-height:44px; border-radius:14px; background:rgba(5,11,18,.77); border:1px solid rgba(255,255,255,.24); color:white; backdrop-filter:blur(12px); }
-.camera-fullscreen-button:focus-visible, .camera-action:focus-visible { outline:2px solid #8df4ce; outline-offset:2px; }
-.camera-control-dock { position:absolute; inset:auto 0 0; z-index:5; display:flex; justify-content:center; align-items:flex-end; gap:clamp(4px,1.5vw,15px); padding:24px 8px 9px; background:linear-gradient(to top,rgba(0,0,0,.93) 0%,rgba(0,0,0,.68) 63%,transparent); }
-.camera-action { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:3px; flex:0 1 78px; min-width:0; min-height:53px; border-radius:13px; color:#f8fafc; transition:transform .12s,background .12s; touch-action:manipulation; }
-.camera-action:active:not(:disabled) { transform:scale(.94); background:rgba(255,255,255,.13); }
-.camera-action:disabled { opacity:.32; }
-.camera-action-glyph { display:grid; place-items:center; height:30px; width:44px; border-radius:999px; }
-.camera-action-record { border:2px solid rgba(255,255,255,.94); width:36px; height:36px; }
-.camera-action-stop { color:#fca5a5; }
-.camera-action-label { font-size:10px; font-weight:700; letter-spacing:.015em; }
-.camera-inline-feedback { position:absolute; left:10px; right:10px; z-index:6; bottom:85px; padding:9px 12px; border-radius:12px; background:rgba(95,34,29,.91); color:white; font-size:11px; line-height:1.4; }
-.camera-confirm-backdrop { position:absolute; inset:0; z-index:20; display:grid; place-items:center; padding:14px; background:rgba(3,8,14,.75); backdrop-filter:blur(4px); }
-.camera-confirm-dialog { width:min(100%,360px); max-height:100%; overflow-y:auto; border:1px solid #415164; border-radius:17px; background:#152033; padding:16px; box-shadow:0 18px 55px rgba(0,0,0,.6); }
-.camera-immersive, .camera-immersive:fullscreen { position:fixed!important; inset:0!important; z-index:100!important; height:100vh!important; height:100dvh!important; width:100vw!important; max-width:none!important; display:flex!important; flex-direction:column!important; margin:0!important; border:0!important; border-radius:0!important; box-shadow:none!important; background:#020407!important; }
-.camera-immersive .camera-panel-heading, .camera-immersive .camera-metrics { display:none!important; }
-.camera-immersive .camera-wrap { flex:1; min-height:0; display:flex; }
-.camera-immersive .camera-frame { flex:1; height:100%!important; min-height:0; width:100%; }
-.camera-immersive .camera-top-hud { padding: max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left)); }
-.camera-immersive .camera-control-dock { padding-bottom:max(14px,env(safe-area-inset-bottom)); padding-left:max(8px,env(safe-area-inset-left)); padding-right:max(8px,env(safe-area-inset-right)); }
-.camera-immersive .camera-action { min-height:66px; }
-.camera-immersive .camera-inline-feedback { bottom:100px; }
-@media (max-height: 380px) { .camera-immersive .camera-action { min-height:48px; } .camera-immersive .camera-control-dock { padding-top:9px; padding-bottom:4px; } .camera-immersive .camera-top-hud { padding-top:3px; } }
+.camera-video {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+  background: #020407;
+}
+.camera-top-hud {
+  position: absolute;
+  z-index: 5;
+  inset: 0 0 auto;
+  padding: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.53), transparent);
+}
+.camera-status {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  padding: 8px 10px;
+  min-height: 36px;
+  max-width: calc(100% - 56px);
+  border-radius: 999px;
+  background: rgba(5, 11, 18, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #edf6fa;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  backdrop-filter: blur(9px);
+}
+.camera-status--active {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+.camera-fullscreen-button {
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 14px;
+  background: rgba(5, 11, 18, 0.77);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: white;
+  backdrop-filter: blur(12px);
+}
+.camera-fullscreen-button:focus-visible,
+.camera-action:focus-visible {
+  outline: 2px solid #8df4ce;
+  outline-offset: 2px;
+}
+.camera-control-dock {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: clamp(4px, 1.5vw, 15px);
+  padding: 24px 8px 9px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.93) 0%,
+    rgba(0, 0, 0, 0.68) 63%,
+    transparent
+  );
+}
+.camera-action {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  flex: 0 1 78px;
+  min-width: 0;
+  min-height: 53px;
+  border-radius: 13px;
+  color: #f8fafc;
+  transition:
+    transform 0.12s,
+    background 0.12s;
+  touch-action: manipulation;
+}
+.camera-action:active:not(:disabled) {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.13);
+}
+.camera-action:disabled {
+  opacity: 0.32;
+}
+.camera-action-glyph {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  width: 44px;
+  border-radius: 999px;
+}
+.camera-action-record {
+  border: 2px solid rgba(255, 255, 255, 0.94);
+  width: 36px;
+  height: 36px;
+}
+.camera-action-stop {
+  color: #fca5a5;
+}
+.camera-action-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+}
+.camera-inline-feedback {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  z-index: 6;
+  bottom: 85px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(95, 34, 29, 0.91);
+  color: white;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.camera-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  background: rgba(3, 8, 14, 0.75);
+  backdrop-filter: blur(4px);
+}
+.camera-confirm-dialog {
+  width: min(100%, 360px);
+  max-height: 100%;
+  overflow-y: auto;
+  border: 1px solid #415164;
+  border-radius: 17px;
+  background: #152033;
+  padding: 16px;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.6);
+}
+.camera-immersive,
+.camera-immersive:fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100 !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  width: 100vw !important;
+  max-width: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: #020407 !important;
+}
+.camera-immersive .camera-panel-heading,
+.camera-immersive .camera-metrics {
+  display: none !important;
+}
+.camera-immersive .camera-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.camera-immersive .camera-frame {
+  flex: 1;
+  height: 100% !important;
+  min-height: 0;
+  width: 100%;
+}
+.camera-immersive .camera-top-hud {
+  padding: max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+}
+.camera-immersive .camera-control-dock {
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  padding-left: max(8px, env(safe-area-inset-left));
+  padding-right: max(8px, env(safe-area-inset-right));
+}
+.camera-immersive .camera-action {
+  min-height: 66px;
+}
+.camera-immersive .camera-inline-feedback {
+  bottom: 100px;
+}
+@media (max-height: 380px) {
+  .camera-immersive .camera-action {
+    min-height: 48px;
+  }
+  .camera-immersive .camera-control-dock {
+    padding-top: 9px;
+    padding-bottom: 4px;
+  }
+  .camera-immersive .camera-top-hud {
+    padding-top: 3px;
+  }
+}
 /* In compressed split-screen view the overlay is the ONLY action dock; no
    secondary capture button is needed below the preview. */
-@media (max-width:919px) and (max-height:620px) { .camera-primary:not(.camera-immersive) .camera-frame { height:clamp(142px,34dvh,205px); } }
+@media (max-width: 919px) and (max-height: 620px) {
+  .camera-primary:not(.camera-immersive) .camera-frame {
+    height: clamp(142px, 34dvh, 205px);
+  }
+}
 
 /* After Stop, techs can jump straight to the result card without hunting for
    it below the fullscreen preview. */
-.camera-result-callout { position:absolute; z-index:7; top:55px; left:50%; transform:translateX(-50%); display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:6px; width:max-content; max-width:calc(100% - 20px); padding:6px 9px; border-radius:10px; background:rgba(3,8,16,.84); border:1px solid rgba(255,255,255,.17); color:#fff; font-size:11px; backdrop-filter:blur(12px); }
-.camera-result-link { border-radius:7px; background:#73e6bf; color:#05271e; padding:6px 9px; min-height:31px; font-size:11px; font-weight:800; }
+.camera-result-callout {
+  position: absolute;
+  z-index: 7;
+  top: 55px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: max-content;
+  max-width: calc(100% - 20px);
+  padding: 6px 9px;
+  border-radius: 10px;
+  background: rgba(3, 8, 16, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  color: #fff;
+  font-size: 11px;
+  backdrop-filter: blur(12px);
+}
+.camera-result-link {
+  border-radius: 7px;
+  background: #73e6bf;
+  color: #05271e;
+  padding: 6px 9px;
+  min-height: 31px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* Prevent browser-level pull-to-refresh and page bouncing */
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Keep the application scrollable without scrolling the browser */
+#app {
+  width: 100%;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
