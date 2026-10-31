@@ -1,0 +1,9 @@
+
+# Netlify configuration for Vue 3 + Vite
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Use Node.js 22 for the production build
+[build.environment]
+  NODE_VERSION = "22"
