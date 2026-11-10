@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
-import { AUDIO_BPS, STOP_AT_BYTES, LIMIT_BYTES, preferredMime, suggestedVideoBitrate } from '../lib/media.js';
+import { AUDIO_BPS, LIMIT_BYTES, preferredMime, suggestedVideoBitrate } from '../lib/media.js';
 
 export function useRecorder(settings) {
   const previewEl = ref(null);
@@ -35,7 +35,6 @@ export function useRecorder(settings) {
   let sessionId = 0;
   let discardOnStop = false; // Reset while capturing must not publish an unfinished blob.
   let fallbackEncoder = false;
-  let lastActiveTick = 0;
 
   const recording = computed(() => status.value === 'recording' || status.value === 'paused');
   const videoBps = computed(() => settings.mode === 'custom'
@@ -47,16 +46,11 @@ export function useRecorder(settings) {
     if (!startedAt) return;
     const currentPause = pausedAt ? Date.now() - pausedAt : 0;
     elapsed.value = Math.max(0, (Date.now() - startedAt - pausedTotal - currentPause) / 1000);
-    // Safari may defer ondataavailable until stop or while the screen sleeps.
-    // Also enforce an estimated cutoff if the encoder has not emitted chunks,
-    // but never confuse this estimate with actual output bytes.
-    if (status.value === 'recording' && elapsed.value - lastActiveTick > 0.4) {
-      lastActiveTick = elapsed.value;
-      const estimate = (elapsed.value * (videoBps.value + (hasAudio.value ? AUDIO_BPS : 0))) / 8;
-      if (estimate >= STOP_AT_BYTES && bytes.value < STOP_AT_BYTES) {
-        stopRecording('Stopped at the estimated 46 MB limit; verify the actual final size before uploading.');
-      }
-    }
+
+    // IMPORTANT: recording is intentionally uncapped.
+    // The 50 MB value is an output/upload target only. Safari may delay
+    // ondataavailable events, so neither elapsed-time estimates nor emitted
+    // chunk sizes are allowed to stop an active recording.
   }
 
   async function listCameras() {
@@ -197,7 +191,6 @@ export function useRecorder(settings) {
     stopReason = '';
     discardOnStop = false;
     fallbackEncoder = false;
-    lastActiveTick = 0;
     result.value = null;
     resultMime.value = '';
     const opts = { videoBitsPerSecond: videoBps.value };
@@ -227,9 +220,10 @@ export function useRecorder(settings) {
       if (!data?.size || discardOnStop) return;
       parts.push(data);
       bytes.value += data.size;
+
       // Real-time encoding: ondataavailable contains already-compressed chunks.
-      // Stop early; the delayed final chunk can be larger than a timeslice.
-      if (bytes.value >= STOP_AT_BYTES && recorder.state !== 'inactive') stopRecording('Stopped near 50 MB size limit.');
+      // Keep collecting regardless of size. If the completed recording is over
+      // 50 MB, the user can run it through the local compressor afterward.
     };
     recorder.onerror = (event) => {
       error.value = `Recording failed: ${event.error?.message || 'Encoder error'}`;
@@ -265,7 +259,7 @@ export function useRecorder(settings) {
       resultMime.value = blob.type;
       parts = []; // Avoid retaining every chunk in addition to the final blob.
       if (blob.size > LIMIT_BYTES) {
-        hint.value = 'Recording exceeded 50 MB despite the safety buffer. Use Compress file below before uploading.';
+        hint.value = 'Recording is complete and exceeds the 50 MB output target. Your full recording was preserved — use Compress ≤ 50 MB below before uploading.';
       } else if (stopReason) {
         hint.value = stopReason;
       }

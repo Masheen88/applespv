@@ -1,6 +1,6 @@
 import { onBeforeUnmount, ref } from 'vue';
 import {
-  AUDIO_BPS, LIMIT_BYTES, STOP_AT_BYTES, clamp, preferredMime,
+  AUDIO_BPS, LIMIT_BYTES, clamp, preferredMime,
   readVideoMetadata, scaledDimensions,
 } from '../lib/media.js';
 
@@ -10,6 +10,11 @@ import {
  * decode -> draw to canvas -> MediaRecorder re-encode (in real playback time).
  * No CDN, server, maps, FFmpeg download, or external video upload is involved.
  */
+const MAX_COMPRESSION_PASSES = 6;
+const COMPRESSION_TARGET_BYTES = 47_000_000; // Leave room for container/encoder variance under the 50 MB service limit.
+const MIN_VIDEO_BPS = 50_000;
+const MIN_AUDIO_BPS = 24_000;
+
 export function useCompressor(settings) {
   const file = ref(null);
   const metadata = ref(null);
@@ -86,20 +91,23 @@ export function useCompressor(settings) {
       const meta = source === file.value ? (metadata.value || await readVideoMetadata(source)) : await readVideoMetadata(source);
       if (!meta.duration || !meta.width || !meta.height) throw new Error('Cannot determine this video’s duration or dimensions.');
 
-      // Default 43 MB budget provides a safer margin for browser bitrate drift.
-      const totalBitsPerSec = (43_000_000 * 8) / meta.duration;
-      let videoBps = Math.round(clamp(totalBitsPerSec * 0.87 - AUDIO_BPS, 150_000, 4_500_000));
+      // Start from a duration-aware target rather than a fixed bitrate. The
+      // compressor aims a few MB below 50 MB so container overhead and encoder
+      // variance do not push the final file back over the service limit.
+      const totalBitsPerSec = (COMPRESSION_TARGET_BYTES * 8) / meta.duration;
+      let audioBps = Math.round(clamp(totalBitsPerSec * 0.16, MIN_AUDIO_BPS, AUDIO_BPS));
+      let videoBps = Math.round(clamp(totalBitsPerSec * 0.86 - audioBps, MIN_VIDEO_BPS, 4_500_000));
       const [maxW, maxH] = settings.convertResolution.split('x').map(Number);
       let dimensions = scaledDimensions(meta.width, meta.height, maxW, maxH);
       let lastBlob = null;
       let lastHadAudio = true;
 
-      for (let n = 1; n <= 3; n++) {
+      for (let n = 1; n <= MAX_COMPRESSION_PASSES; n++) {
         if (job.cancelled) throw new Error('Conversion cancelled.');
         attempt.value = n;
         progress.value = 0;
         const output = await transcodeOnce({
-          source, job, dimensions, videoBps, fps: Number(settings.fps) || 24,
+          source, job, dimensions, videoBps, audioBps, fps: Number(settings.fps) || 24,
           onProgress: (fraction) => { progress.value = Math.floor(clamp(fraction, 0, 1) * 100); },
           setVideo: (element) => { convertVideo = element; },
         });
@@ -107,8 +115,26 @@ export function useCompressor(settings) {
         lastBlob = output.blob;
         lastHadAudio = output.hadAudio;
         if (lastBlob.size <= LIMIT_BYTES) break;
-        videoBps = Math.max(110_000, Math.floor(videoBps * 0.65));
-        dimensions = scaledDimensions(dimensions.width, dimensions.height, Math.max(320, dimensions.width * 0.75), Math.max(180, dimensions.height * 0.75));
+
+        // Adapt using the actual miss instead of blindly multiplying by a fixed
+        // value. The 0.92 factor leaves a little extra room for bitrate drift.
+        const fitRatio = COMPRESSION_TARGET_BYTES / Math.max(1, lastBlob.size);
+        const bitrateScale = clamp(fitRatio * 0.92, 0.30, 0.88);
+        videoBps = Math.max(MIN_VIDEO_BPS, Math.floor(videoBps * bitrateScale));
+        audioBps = Math.max(MIN_AUDIO_BPS, Math.floor(audioBps * clamp(fitRatio, 0.55, 0.92)));
+
+        // When bitrate reduction alone is no longer enough, progressively lower
+        // resolution. This is especially important for long captures on mobile
+        // browsers whose encoders do not closely honor requested bitrates.
+        if (n >= 2 || videoBps <= 120_000 || fitRatio < 0.72) {
+          const dimensionScale = clamp(Math.sqrt(fitRatio) * 0.94, 0.62, 0.86);
+          dimensions = scaledDimensions(
+            dimensions.width,
+            dimensions.height,
+            Math.max(320, Math.floor(dimensions.width * dimensionScale)),
+            Math.max(180, Math.floor(dimensions.height * dimensionScale)),
+          );
+        }
       }
 
       if (!lastBlob || !lastBlob.size) throw new Error('Encoder returned an empty video.');
@@ -116,7 +142,7 @@ export function useCompressor(settings) {
       outputMime.value = lastBlob.type;
       progress.value = 100;
       if (lastBlob.size > LIMIT_BYTES) {
-        notice.value = 'Still exceeds 50 MB after three passes. Try a shorter clip or a smaller resolution.';
+        notice.value = `Still exceeds 50 MB after ${MAX_COMPRESSION_PASSES} adaptive passes. The original recording is preserved; try a lower maximum output resolution for an extremely long clip.`;
       } else {
         notice.value = `Compressed successfully in ${attempt.value} pass${attempt.value > 1 ? 'es' : ''}.`;
       }
@@ -134,11 +160,11 @@ export function useCompressor(settings) {
 
   return {
     file, metadata, busy, progress, attempt, error, notice, result,
-    outputMime, previewUrl, supported, selectFile, convert, cancel,
+    outputMime, previewUrl, supported, maxAttempts: MAX_COMPRESSION_PASSES, selectFile, convert, cancel,
   };
 }
 
-async function transcodeOnce({ source, job, dimensions, videoBps, fps, onProgress, setVideo }) {
+async function transcodeOnce({ source, job, dimensions, videoBps, audioBps, fps, onProgress, setVideo }) {
   const sourceUrl = URL.createObjectURL(source);
   const video = document.createElement('video');
   let canvasStream = null;
@@ -208,7 +234,7 @@ async function transcodeOnce({ source, job, dimensions, videoBps, fps, onProgres
     recorder = new MediaRecorder(combined, {
       ...(mimeType ? { mimeType } : {}),
       videoBitsPerSecond: videoBps,
-      ...(audioTrack ? { audioBitsPerSecond: AUDIO_BPS } : {}),
+      ...(audioTrack ? { audioBitsPerSecond: audioBps } : {}),
     });
     const chunks = [];
     recorder.ondataavailable = ({ data }) => { if (data?.size) chunks.push(data); };

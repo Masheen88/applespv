@@ -647,20 +647,20 @@ onBeforeUnmount(() => {
                 :aria-valuenow="capture.progress.value"
                 aria-valuemin="0"
                 aria-valuemax="100"
-                aria-label="Current recording size as percent of 50 MB"
+                aria-label="Current encoded recording size relative to the 50 MB output target"
               >
                 <div
                   :class="[
                     'h-full transition-[width] duration-500',
                     capture.bytes.value > LIMIT_BYTES
-                      ? 'bg-red-400'
+                      ? 'bg-amber-400'
                       : 'bg-mint',
                   ]"
                   :style="{ width: capture.progress.value + '%' }"
                 />
               </div>
               <p class="mt-1.5 text-[11px] text-slate-500">
-                Compressed as you record · early stop around 46 MB
+                Recording is uncapped · 50 MB is only the final output target
                 <span v-if="recording"
                   >· ~{{ formatBytes(estimatedBytes) }} estimated</span
                 >
@@ -753,7 +753,7 @@ onBeforeUnmount(() => {
               label="spv-capture"
               :notice="
                 capture.result.value && capture.result.value.size <= LIMIT_BYTES
-                  ? 'The recording was already encoded during capture. No second compression pass needed.'
+                  ? 'The completed recording is already within the 50 MB output target. No second compression pass is needed.'
                   : ''
               "
               @recompress="recompressCapture"
@@ -771,14 +771,12 @@ onBeforeUnmount(() => {
               </h2>
             </div>
             <p class="text-slate-400 text-xs leading-relaxed">
-              Camera recording is encoded at the chosen bitrate as it happens.
-              Stop recording and the file is already compressed and ready to
-              save.
+              Camera recording is encoded at the chosen bitrate as it happens, but capture duration is not capped by file size. Keep recording as long as needed; if the finished file is over 50 MB, compress it afterward.
             </p>
             <div class="flex flex-wrap gap-2 mt-3">
               <span class="chip">On-device</span
               ><span class="chip">No maps</span
-              ><span class="chip">50 MB guard</span>
+              ><span class="chip">50 MB output target</span>
             </div>
             <div
               v-if="liveFileFormat !== 'MP4'"
@@ -879,7 +877,7 @@ onBeforeUnmount(() => {
             </p>
             <div v-if="compressor.busy.value" class="mt-3">
               <div class="flex justify-between mb-2 text-slate-400 text-xs">
-                <span>Conversion pass {{ compressor.attempt.value }} of 3</span
+                <span>Conversion pass {{ compressor.attempt.value }} of {{ compressor.maxAttempts }}</span
                 ><span>{{ compressor.progress.value }}%</span>
               </div>
               <div class="bg-slate-700 rounded-full h-2 overflow-hidden">
@@ -916,9 +914,7 @@ onBeforeUnmount(() => {
               v-if="!compressor.file.value && !compressor.busy.value"
               class="mt-3 text-slate-500 text-xs leading-relaxed"
             >
-              Use this only for videos you already have or recordings that
-              exceed the limit. Conversion runs in real time and stays on your
-              device.
+              Use this for existing videos or completed recordings that exceed the 50 MB output target. Conversion runs locally in real time and stays on your device.
             </p>
             <button
               v-if="compressor.file.value && !compressor.busy.value"

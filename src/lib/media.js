@@ -4,7 +4,7 @@
  * 50 MB limit can be decimal, so we use 50,000,000 bytes to stay conservative.
  */
 export const LIMIT_BYTES = 50_000_000;
-export const STOP_AT_BYTES = 46_000_000; // Leaves room for delayed/final recorder chunks.
+export const AUTO_BITRATE_BUDGET_BYTES = 44_000_000; // Advisory budget only; recording is never stopped at this size.
 export const AUDIO_BPS = 64_000;
 
 export function formatBytes(value = 0) {
@@ -27,7 +27,9 @@ export function clamp(value, min, max) {
 // Browser encoders may ignore the requested bitrate; live measured bytes are authoritative.
 export function suggestedVideoBitrate(minutes, audioEnabled = true) {
   const seconds = Math.max(1, Number(minutes) || 5) * 60;
-  const budgetBps = (STOP_AT_BYTES * 8 * 0.88) / seconds;
+  // Auto mode chooses a starting bitrate that should land below 50 MB when the
+  // user records for roughly the planned duration. It is NOT a recording cap.
+  const budgetBps = (AUTO_BITRATE_BUDGET_BYTES * 8) / seconds;
   return Math.round(clamp(budgetBps - (audioEnabled ? AUDIO_BPS : 0), 160_000, 6_000_000));
 }
 
@@ -36,7 +38,9 @@ export function estimateSizeBytes(seconds, videoBps, audioEnabled = true) {
 }
 
 export function estimatedMinutes(videoBps, audioEnabled = true) {
-  return Math.max(0, (STOP_AT_BYTES * 8) / (videoBps + (audioEnabled ? AUDIO_BPS : 0)) / 60);
+  // Informational only: this estimates when the encoded capture would reach
+  // the 50 MB output target. Recording continues normally past this point.
+  return Math.max(0, (LIMIT_BYTES * 8) / (videoBps + (audioEnabled ? AUDIO_BPS : 0)) / 60);
 }
 
 export function pickRecordingMime(isSupported = () => false) {

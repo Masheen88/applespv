@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  LIMIT_BYTES, STOP_AT_BYTES, extensionForMime, estimateSizeBytes,
+  AUTO_BITRATE_BUDGET_BYTES, LIMIT_BYTES, extensionForMime, estimateSizeBytes,
   formatBytes, formatDuration, pickRecordingMime, preferredMime, safeFileName,
   scaledDimensions, suggestedVideoBitrate,
 } from '../src/lib/media.js';
 
-test('uses a conservative decimal 50 MB limit and an early-stop buffer', () => {
+test('uses a conservative decimal 50 MB output target without a recording cutoff', () => {
   assert.equal(LIMIT_BYTES, 50_000_000);
-  assert.ok(STOP_AT_BYTES < LIMIT_BYTES);
+  assert.ok(AUTO_BITRATE_BUDGET_BYTES < LIMIT_BYTES);
 });
 test('calculates smaller bitrate for longer planned recording', () => {
   assert.ok(suggestedVideoBitrate(5) > suggestedVideoBitrate(15));

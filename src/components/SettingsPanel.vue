@@ -33,15 +33,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKey));
 
         <div class="flex-1 space-y-5 overflow-y-auto px-4 py-5 pb-10">
           <section class="space-y-3">
-            <div class="flex items-center gap-2 text-slate-200 font-semibold text-sm"><Gauge :size="17" class="text-mint" /> Compression during recording</div>
+            <div class="flex items-center gap-2 text-slate-200 font-semibold text-sm"><Gauge :size="17" class="text-mint" /> Recording quality & size target</div>
             <div class="grid grid-cols-2 gap-2">
               <label class="field col-span-2">Bitrate mode
                 <select v-model="settings.mode" :disabled="recording">
-                  <option value="auto">Auto by desired length</option>
+                  <option value="auto">Auto by planned length</option>
                   <option value="custom">Manual bitrate</option>
                 </select>
               </label>
-              <label v-if="settings.mode === 'auto'" class="field col-span-2">Planned recording length
+              <label v-if="settings.mode === 'auto'" class="field col-span-2">Planned recording length (quality target)
                 <select v-model.number="settings.targetMinutes" :disabled="recording">
                   <option :value="2">2 minutes · higher quality</option>
                   <option :value="5">5 minutes · balanced</option>
@@ -57,8 +57,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKey));
             </div>
             <div class="rounded-xl border border-mint/20 bg-mint/5 p-3 text-xs text-slate-300 space-y-1">
               <p><span class="text-white font-semibold">Encoder target:</span> {{ effectiveKbps }} kbps video <span v-if="settings.mode === 'auto'" class="text-slate-400">(auto: {{ autoKbps }})</span></p>
-              <p><span class="text-white font-semibold">Estimate:</span> {{ estSize }} for {{ settings.targetMinutes }} min · ~{{ estMinutes }} min to safety limit at that average rate</p>
-              <p class="text-slate-400">The browser controls actual encoding. A measured-size safety stop is also used.</p>
+              <p><span class="text-white font-semibold">Estimate:</span> {{ estSize }} for {{ settings.targetMinutes }} min · ~{{ estMinutes }} min to the 50 MB output target at that average rate</p>
+              <p class="text-slate-400">This is only a bitrate/quality estimate. Recording does not stop at 50 MB; oversized captures can be compressed after you stop.</p>
             </div>
           </section>
 
@@ -109,7 +109,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKey));
                 <option value="640x360">360p</option><option value="426x240">240p</option>
               </select>
             </label>
-            <p class="text-xs leading-relaxed text-slate-400">Uploaded videos are re-encoded at playback speed. Captured videos are compressed as they record and generally do not need this step.</p>
+            <p class="text-xs leading-relaxed text-slate-400">Uploaded videos are re-encoded at playback speed. Captured videos are encoded as they record. If a finished capture is over 50 MB, use its Compress ≤ 50 MB action to run the same local conversion pipeline.</p>
           </section>
         </div>
         <div class="shrink-0 border-t border-edge bg-panel p-3 pb-[max(12px,env(safe-area-inset-bottom))]">

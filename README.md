@@ -32,10 +32,10 @@ You can also double-click `start.cmd` or `build.cmd` on Windows. With pnpm insta
 1. Add optional address and reference details beneath the camera. They stay visible beside/under the camera without navigating to another tab; saved locally in `localStorage`.
 2. In **Settings**, choose planned recording length (auto bitrate) or manually set the video bitrate. Set resolution, frame rate, microphone, and camera.
 3. Enable the camera. Tap **Record video**. `MediaRecorder` compresses/encodes the stream directly to MP4 or WebM as it arrives. Each timeslice (750ms requested) updates the live encoded-byte count.
-4. The app **requests** a bitrate and stops early when measured bytes reach ~46 MB. Some browsers delay chunks or ignore bitrate settings. A final recording could still exceed 50 MB; if so, use the converter below.
-5. Stop, review, share, or download the file. Under-limit recordings do not require any second conversion.
+4. The app **requests** a bitrate based on the selected quality/length target, but it never stops a recording because of file size. Some browsers delay chunks or ignore bitrate settings, so the live size is informative rather than a hard limit.
+5. Stop when the job is actually finished. If the completed capture is over 50 MB, use **Compress ≤ 50 MB** on its result card; otherwise review, share, or download it directly.
 
-**Expected recording size is only an estimate.** There is no perfect live guarantee of a final hard 50 MB without a capable encoder/segment manager because browsers can buffer a large final chunk. The limit uses decimal 50,000,000 bytes (stricter than 50 MiB).
+**Expected recording size is only an estimate.** The 50 MB value is an output/upload target, not a capture timer. The app uses decimal 50,000,000 bytes (stricter than 50 MiB) when deciding whether post-recording compression is required.
 
 ## Remember camera ON / OFF between visits
 
@@ -52,7 +52,7 @@ The upper-right **Expand** button makes the camera fill the available screen. To
 - **Android Chrome / compatible iPads**: use native _element_ fullscreen when available, including all HTML overlays; if fullscreen is rejected, fall back to fixed viewport mode.
 - **iPhone Safari**: use a fixed `100dvh` _app-immersive_ layout. iPhone native _video_ fullscreen replaces the whole page with the native player and would hide Record/Pause/Stop/Reset; we intentionally **never** call `webkitEnterFullscreen()` for the camera. Safari's browser bars can remain visible — this is an iOS browser restriction, not a broken toggle. Add the web app to the iPhone Home Screen to run it in a standalone window without Safari tab controls. Not a native iOS IPA.
 - **iOS video**: uses `playsinline`, `webkit-playsinline`, autoplay muted preview, an HTTPS permission request, and Safari's native MP4-capable `MediaRecorder` where available. The recorder retries with browser-selected encoding when an explicit MIME/codec is rejected. Share uses the iOS Share Sheet when supported; on iPhone that is generally the easiest way to **Save to Files**.
-- **Known platform constraints**: mobile browsers can ignore requested bitrates, delay encoded chunks, deny camera access in split-screen, and suspend capture when backgrounded/locked. 46 MB is a conservative early-stop _target_, **not** a guaranteed hard cap. Keep the screen awake, review the actual size, and test on the specific iOS/Android devices used by technicians. Pause/resume is subject to browser `MediaRecorder` support.
+- **Known platform constraints**: mobile browsers can ignore requested bitrates, delay encoded chunks, deny camera access in split-screen, and suspend capture when backgrounded/locked. The app does **not** impose a 50 MB recording cutoff; only the browser/OS, camera disconnection, an encoder error, or the user pressing Stop can end a take. Keep the screen awake and test on the specific iOS/Android devices used by technicians. Pause/resume is subject to browser `MediaRecorder` support.
 
 ### iPhone deployment
 
@@ -63,7 +63,7 @@ The upper-right **Expand** button makes the camera fill the available screen. To
 
 ## File converter
 
-Choose an existing file to convert locally. The app uses an invisible video decoder, canvas frame capture, a silent Web Audio capture path when available, and `MediaRecorder`. Conversion therefore takes approximately the input's playback duration; it is **not** a background transcoder and the screen should remain awake/foreground. It retries with reduced bitrate/resolution up to 3 times if output exceeds the limit. A browser might not decode some MOV/MKV codecs even if the file can be selected.
+Choose an existing file to convert locally. The app uses an invisible video decoder, canvas frame capture, a silent Web Audio capture path when available, and `MediaRecorder`. Conversion therefore takes approximately the input's playback duration; it is **not** a background transcoder and the screen should remain awake/foreground. It retries with adaptive bitrate/audio bitrate/resolution changes up to 6 times if output exceeds the limit. A browser might not decode some MOV/MKV codecs even if the file can be selected.
 
 Under-50-MB input files (including iPhone MOV clips) are passed through without avoidable conversion; check destination format acceptance. The converter tries to retain audio, but browsers may disallow capturing audio from `<video>` in certain situations. If unavailable, it flags that the output may be silent. Inspect the result before uploading. A service that strictly requires H.264 MP4 may require server-side FFmpeg or a native Android encoding component when `MediaRecorder` cannot encode MP4.
 
@@ -77,7 +77,7 @@ The compact camera preview uses viewport-aware sizing, with address details imme
 - `src/components/AddressCard.vue`: persistent address reference and editable notes.
 - `src/components/SettingsPanel.vue`: camera, length, bitrate, and conversion presets.
 - `src/components/ResultCard.vue`: format/size checks, review, share and download.
-- `src/composables/useRecorder.js`: live camera, video encoding, pause/resume, torch, zoom and early stop.
+- `src/composables/useRecorder.js`: live camera, uncapped video encoding, pause/resume, torch, zoom and finalization.
 - `src/composables/useCompressor.js`: file transcoding, retries, cancellation, audio track and lifecycle cleanup.
 - `src/composables/useLocalSettings.js`: local device preferences/address storage.
 - `src/lib/media.js`: pure size/format/bitrate helpers; covered by `npm test`.
@@ -89,3 +89,8 @@ Nothing is uploaded to a server. Videos remain in browser memory until saved, di
 ## Add to Android Home Screen
 
 Once deployed over HTTPS, open the site in Chrome and use **Add to Home screen / Install app** from the browser menu. A web app manifest is included for a standalone window. It still uses the browser's camera and encoder permissions and is **not an APK**.
+
+
+## Recording size behavior
+
+The 50 MB value is an **output/upload target, not a recording limit**. Live recording no longer stops when emitted chunks or an elapsed-time estimate approach 50 MB. Record for as long as needed, then stop normally. If the completed capture is larger than 50 MB, use **Compress ≤ 50 MB** on the result card. The local compressor now uses up to six adaptive passes and lowers bitrate/resolution based on the actual output size.
