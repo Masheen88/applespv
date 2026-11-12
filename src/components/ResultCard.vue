@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { CheckCircle2, Download, Share2, AlertTriangle, Play, RotateCcw } from 'lucide-vue-next';
 import { extensionForMime, formatBytes, LIMIT_BYTES, safeFileName } from '../lib/media.js';
 
-const props = defineProps({ blob: { type: Blob, default: null }, label: { type: String, default: 'capture' }, notice: { type: String, default: '' } });
+const props = defineProps({ blob: { type: Blob, default: null }, label: { type: String, default: 'capture' }, notice: { type: String, default: '' }, busy: { type: Boolean, default: false } });
 const emit = defineEmits(['recompress', 'discard']);
 const videoUrl = ref('');
 const openPreview = ref(false);
@@ -62,7 +62,7 @@ async function share() {
       <button type="button" class="button-primary" @click="save"><Download :size="16" /> Save</button>
       <button type="button" class="button-secondary" @click="share"><Share2 :size="16" /> Share</button>
       <button type="button" class="button-secondary" @click="openPreview = !openPreview"><Play :size="16" /> {{ openPreview ? 'Hide' : 'Review' }}</button>
-      <button v-if="!underLimit" type="button" class="button-secondary" @click="emit('recompress')"><RotateCcw :size="16" /> Compress ≤ 50 MB</button>
+      <button v-if="!underLimit" type="button" class="button-secondary" :disabled="busy" @click="emit('recompress')"><RotateCcw :size="16" /> {{ busy ? 'Compressing…' : 'Compress ≤ 50 MB' }}</button>
       <button v-else type="button" class="button-quiet" @click="emit('discard')">Clear result</button>
     </div>
     <video v-if="openPreview" :src="videoUrl" controls playsinline class="w-full mt-3 rounded-xl bg-black max-h-56" />

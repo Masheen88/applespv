@@ -1,4 +1,6 @@
-# 50 MB recording-cutoff fix
+# 50 MB recording-cutoff fix (historical note)
+
+**Current update (November 2026):** The six-pass conversion implementation described below was replaced by a single-pass compression planner. See `UPDATES_2026-11-12.md` and `src/lib/compressionPlan.js` for current behavior. Live recording still remains uncapped; finished files over 50 MB can be sent to the new compressor.
 
 ## Root cause
 

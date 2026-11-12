@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS = {
   microphone: true,
   mode: 'auto', // auto or custom bitrate
   manualKbps: 1200,
-  convertResolution: '854x480',
+  convertResolution: '1280x720',
   dark: true,
   address: { street: '', city: '', region: '', postal: '', reference: '', notes: '' },
 };

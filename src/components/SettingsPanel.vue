@@ -1,7 +1,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted } from 'vue';
-import { X, Info, Gauge, Camera, Settings2 } from 'lucide-vue-next';
-import { estimatedMinutes, formatBytes, estimateSizeBytes, suggestedVideoBitrate } from '../lib/media.js';
+import { X, Gauge, Camera, Settings2 } from 'lucide-vue-next';
+import HelpTip from './HelpTip.vue';
+import { formatBytes, estimateSizeBytes } from '../lib/media.js';
 
 const props = defineProps({
   open: Boolean,
@@ -13,8 +14,6 @@ const props = defineProps({
 });
 const emit = defineEmits(['close', 'apply']);
 const estSize = computed(() => formatBytes(estimateSizeBytes(props.settings.targetMinutes * 60, props.effectiveKbps * 1000, props.settings.microphone)));
-const estMinutes = computed(() => estimatedMinutes(props.effectiveKbps * 1000, props.settings.microphone).toFixed(1));
-const autoKbps = computed(() => Math.round(suggestedVideoBitrate(props.settings.targetMinutes, props.settings.microphone) / 1000));
 function handleKey(e) { if (e.key === 'Escape') emit('close'); }
 onMounted(() => document.addEventListener('keydown', handleKey));
 onBeforeUnmount(() => document.removeEventListener('keydown', handleKey));
@@ -33,7 +32,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKey));
 
         <div class="flex-1 space-y-5 overflow-y-auto px-4 py-5 pb-10">
           <section class="space-y-3">
-            <div class="flex items-center gap-2 text-slate-200 font-semibold text-sm"><Gauge :size="17" class="text-mint" /> Recording quality & size target</div>
+            <div class="flex items-center gap-2 text-slate-200 font-semibold text-sm"><Gauge :size="17" class="text-mint" /> Recording quality <HelpTip label="How the recording size estimate works" message="Auto mode picks a bitrate based on your planned duration. It does not stop or truncate a recording at 50 MB. Actual size may differ because mobile encoders can ignore bitrate requests. Oversized completed recordings can be compressed in one pass." /></div>
             <div class="grid grid-cols-2 gap-2">
               <label class="field col-span-2">Bitrate mode
                 <select v-model="settings.mode" :disabled="recording">
@@ -55,16 +54,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKey));
                 <input v-model.number="settings.manualKbps" type="range" min="160" max="6000" step="40" :disabled="recording" class="w-full accent-emerald-400" />
               </label>
             </div>
-            <div class="rounded-xl border border-mint/20 bg-mint/5 p-3 text-xs text-slate-300 space-y-1">
-              <p><span class="text-white font-semibold">Encoder target:</span> {{ effectiveKbps }} kbps video <span v-if="settings.mode === 'auto'" class="text-slate-400">(auto: {{ autoKbps }})</span></p>
-              <p><span class="text-white font-semibold">Estimate:</span> {{ estSize }} for {{ settings.targetMinutes }} min · ~{{ estMinutes }} min to the 50 MB output target at that average rate</p>
-              <p class="text-slate-400">This is only a bitrate/quality estimate. Recording does not stop at 50 MB; oversized captures can be compressed after you stop.</p>
+            <div class="rounded-xl border border-mint/20 bg-mint/5 px-3 py-2.5 text-xs text-slate-300">
+              <p class="font-medium text-white">~{{ estSize }} / {{ settings.targetMinutes }} min <span class="text-slate-400">· {{ effectiveKbps }} kbps</span></p>
             </div>
           </section>
 
           <div class="h-px bg-edge" />
           <section class="space-y-3">
-            <div class="flex items-center gap-2 text-slate-200 font-semibold text-sm"><Camera :size="17" class="text-mint" /> Camera and audio</div>
+            <div class="flex items-center gap-2 text-slate-200 font-semibold text-sm"><Camera :size="17" class="text-mint" /> Camera and audio <HelpTip label="Camera permission and settings" message="Camera and microphone permissions belong to your browser. Settings apply when the camera restarts. Your camera ON/OFF preference is stored locally; iPhone Safari may still ask you to tap the preview." /></div>
             <label class="field">Camera
               <select v-model="settings.cameraId" :disabled="recording">
                 <option value="">Prefer rear camera</option>
@@ -92,24 +89,23 @@ onBeforeUnmount(() => document.removeEventListener('keydown', handleKey));
             <label class="flex items-center justify-between gap-2.5 rounded-xl border border-edge px-3 py-2.5 text-sm text-slate-300">
               <span class="min-w-0">
                 <span class="block font-medium text-white">Open camera on next visit</span>
-                <span class="mt-0.5 block text-xs leading-relaxed text-slate-400">Remember my camera ON/OFF choice on this phone.</span>
+
               </span>
               <input v-model="settings.autoOpenCamera" type="checkbox" class="h-4 w-4 shrink-0 accent-emerald-400" aria-label="Open camera automatically on future visits" />
             </label>
-            <p class="text-xs leading-relaxed text-slate-400">Enabling the camera turns this on; selecting Camera Off turns it off. Browser permission may still be requested, and iPhone Safari may need a tap to show the preview.</p>
-            <p class="flex gap-2 text-xs leading-relaxed text-slate-400"><Info :size="15" class="shrink-0 mt-0.5" /> Changes to camera/audio/resolution take effect after restarting the preview. Recording settings are locked while capturing.</p>
+
           </section>
 
           <div class="h-px bg-edge" />
           <section class="space-y-2">
-            <h3 class="text-sm font-semibold text-white">Upload conversion</h3>
+            <div class="flex items-center gap-2"><h3 class="text-sm font-semibold text-white">Video compression</h3><HelpTip label="Single-pass video compression" message="This sets the maximum resolution, not a fixed output. The compressor automatically lowers resolution and frame rate for longer videos to target less than 50 MB in one pass. Keep the app open; converting a large video usually takes roughly as long as playing it. Strict size cannot be guaranteed if the browser ignores the bitrate." /></div>
             <label class="field">Maximum output resolution
               <select v-model="settings.convertResolution" :disabled="recording">
                 <option value="1280x720">720p</option><option value="854x480">480p</option>
                 <option value="640x360">360p</option><option value="426x240">240p</option>
               </select>
             </label>
-            <p class="text-xs leading-relaxed text-slate-400">Uploaded videos are re-encoded at playback speed. Captured videos are encoded as they record. If a finished capture is over 50 MB, use its Compress ≤ 50 MB action to run the same local conversion pipeline.</p>
+
           </section>
         </div>
         <div class="shrink-0 border-t border-edge bg-panel p-3 pb-[max(12px,env(safe-area-inset-bottom))]">

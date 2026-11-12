@@ -4,13 +4,11 @@ import {
   Aperture,
   Camera,
   CameraOff,
-  CheckCircle,
   CircleAlert,
   Clock3,
   FileVideo2,
   Flashlight,
   FlashlightOff,
-  FolderOpen,
   Info,
   LoaderCircle,
   Pause,
@@ -20,6 +18,7 @@ import {
   Square,
   Video,
   ZoomIn,
+  ChevronDown,
   Maximize2,
   Minimize2,
   X,
@@ -27,6 +26,7 @@ import {
 import AddressCard from "./components/AddressCard.vue";
 import ResultCard from "./components/ResultCard.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
+import HelpTip from "./components/HelpTip.vue";
 import { useRecorder } from "./composables/useRecorder.js";
 import { useCompressor } from "./composables/useCompressor.js";
 import { useLocalSettings } from "./composables/useLocalSettings.js";
@@ -45,6 +45,7 @@ const settingsOpen = ref(false);
 const fileInput = ref(null);
 const cameraPanel = ref(null);
 const captureResultArea = ref(null);
+const compressionArea = ref(null);
 const immersive = ref(false);
 const pendingAction = ref(null); // 'reset' or 'replace' — confirmation protects unsaved footage.
 const isFinalizing = computed(() => capture.status.value === "finalizing");
@@ -211,7 +212,11 @@ async function onFileChange(event) {
 async function recompressCapture() {
   if (!capture.result.value) return;
   // A recorded file can be sent directly into the same local conversion pipeline.
-  await compressor.convert(capture.result.value, { force: true });
+  // Bring live conversion feedback into view immediately when compressing a take.
+  const conversion = compressor.convert(capture.result.value, { name: "Completed recording" });
+  await nextTick();
+  compressionArea.value?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  await conversion;
 }
 function clearCompressor() {
   if (compressor.busy.value) return;
@@ -255,16 +260,13 @@ onBeforeUnmount(() => {
             >
               <span class="text-mint"> AEPMS Video </span>
             </h1>
-            <p class="text-[11px] text-slate-400 truncate">
+            <p class="hidden sm:block text-[11px] text-slate-400 truncate">
               Mobile video recorder &amp; compressor
             </p>
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <span
-            class="px-2 py-1 border border-edge rounded-full tabular-nums text-[11px] text-slate-300"
-            >50 MB target</span
-          >
+          <span class="text-[11px] text-slate-400 tabular-nums">≤ 50 MB</span>
           <button
             type="button"
             class="icon-button"
@@ -623,48 +625,29 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <div class="px-3.5 pt-3 pb-3.5 camera-metrics">
-              <div class="flex flex-wrap items-center gap-2 mb-3">
-                <span class="chip"
-                  ><Clock3 :size="13" />
-                  {{ formatDuration(capture.elapsed.value) }}</span
-                >
-                <span class="chip"
-                  ><FileVideo2 :size="13" />
-                  {{ formatBytes(capture.bytes.value) }}</span
-                >
-                <span class="chip"
-                  >{{ liveFileFormat }} ·
-                  {{ Math.round(capture.videoBps.value / 1000) }} kbps</span
-                >
-                <span v-if="cameraEnabled" class="chip">{{
-                  capture.hasAudio.value ? "Mic on" : "No mic"
-                }}</span>
+            <div class="px-3.5 pt-3 pb-3 camera-metrics">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="chip"><Clock3 :size="13" /> {{ formatDuration(capture.elapsed.value) }}</span>
+                  <span class="chip"><FileVideo2 :size="13" /> {{ formatBytes(capture.bytes.value) }}</span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span class="text-[11px] text-slate-400">50 MB target</span>
+                  <HelpTip label="Recording file size" message="Recording is encoded live. The size bar is informational, not a timer or automatic cutoff. If a finished recording exceeds 50 MB, use Compress on the result card. Browser encoders may vary from the estimated bitrate." />
+                </div>
               </div>
-              <div
-                class="bg-slate-700/70 rounded-full w-full h-1.5 overflow-hidden"
-                role="progressbar"
-                :aria-valuenow="capture.progress.value"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-label="Current encoded recording size relative to the 50 MB output target"
-              >
-                <div
-                  :class="[
-                    'h-full transition-[width] duration-500',
-                    capture.bytes.value > LIMIT_BYTES
-                      ? 'bg-amber-400'
-                      : 'bg-mint',
-                  ]"
-                  :style="{ width: capture.progress.value + '%' }"
-                />
+              <div class="bg-slate-700/70 rounded-full w-full h-1.5 overflow-hidden" role="progressbar"
+                :aria-valuenow="capture.progress.value" aria-valuemin="0" aria-valuemax="100"
+                aria-label="Encoded recording size relative to 50 MB">
+                <div :class="['h-full transition-[width] duration-500', capture.bytes.value > LIMIT_BYTES ? 'bg-amber-400' : 'bg-mint']"
+                  :style="{ width: capture.progress.value + '%' }" />
               </div>
-              <p class="mt-1.5 text-[11px] text-slate-500">
-                Recording is uncapped · 50 MB is only the final output target
-                <span v-if="recording"
-                  >· ~{{ formatBytes(estimatedBytes) }} estimated</span
-                >
-              </p>
+              <div class="flex justify-between items-center gap-2 mt-1.5">
+                <span v-if="recording && capture.bytes.value > LIMIT_BYTES" class="text-[11px] text-amber-200">Over target · recording continues safely</span>
+                <span v-else class="text-[11px] text-slate-500">{{ capture.hasAudio.value ? 'Mic on' : 'Mic off' }} · {{ liveFileFormat }}</span>
+                <span v-if="recording" class="text-[11px] text-slate-500">~{{ formatBytes(estimatedBytes) }} estimated</span>
+                <span v-else class="text-[11px] text-slate-500">{{ Math.round(capture.videoBps.value / 1000) }} kbps</span>
+              </div>
             </div>
           </section>
 
@@ -674,12 +657,12 @@ onBeforeUnmount(() => {
           <!-- Camera options stay outside the immersive preview. The four
                primary record actions live directly on top of the live video. -->
           <section class="card-surface" aria-label="Additional camera options">
-            <div class="flex justify-between items-center mb-2">
-              <h2 class="font-bold text-white text-sm">Camera options</h2>
-              <!-- <span class="text-[11px] text-slate-400"
-                >Record · Pause · Stop · Reset above</span
-              > -->
-            </div>
+            <details class="compact-disclosure">
+              <summary class="flex justify-between items-center gap-2 min-h-8">
+                <span class="flex items-center gap-2 text-sm font-semibold text-white"><Settings2 :size="16" class="text-mint" /> Camera options</span>
+                <ChevronDown :size="17" class="text-slate-400 disclosure-chevron" />
+              </summary>
+              <div class="pt-3">
             <div class="flex flex-wrap items-center gap-2">
               <button
                 class="button-quiet"
@@ -729,6 +712,8 @@ onBeforeUnmount(() => {
                 :value="capture.zoom.value"
                 @input="capture.setZoom($event.target.value)"
             /></label>
+              </div>
+            </details>
             <p
               v-if="capture.error.value"
               class="mt-3 feedback-error"
@@ -750,11 +735,14 @@ onBeforeUnmount(() => {
           <div ref="captureResultArea">
             <ResultCard
               :blob="capture.result.value"
-              label="spv-capture"
+              label="aepms-capture"
+              :busy="compressor.busy.value"
               :notice="
                 capture.result.value && capture.result.value.size <= LIMIT_BYTES
                   ? 'The completed recording is already within the 50 MB output target. No second compression pass is needed.'
-                  : ''
+                  : compressor.sourceLabel.value === 'Completed recording' && compressor.result.value
+                    ? 'A smaller copy is ready in the compression section. Save that version for upload; this original remains available.'
+                    : ''
               "
               @recompress="recompressCapture"
               @discard="capture.discardResult"
@@ -763,171 +751,78 @@ onBeforeUnmount(() => {
         </div>
 
         <aside class="space-y-3 min-w-0">
-          <section v-if="liveFileFormat !== 'MP4'" class="card-surface">
-            <div class="flex items-center gap-2 mb-2">
-              <CheckCircle :size="18" class="text-mint" />
-              <h2 class="font-semibold text-white text-sm">
-                Ready for your workflow
-              </h2>
-            </div>
-            <p class="text-slate-400 text-xs leading-relaxed">
-              Camera recording is encoded at the chosen bitrate as it happens, but capture duration is not capped by file size. Keep recording as long as needed; if the finished file is over 50 MB, compress it afterward.
-            </p>
-            <div class="flex flex-wrap gap-2 mt-3">
-              <span class="chip">On-device</span
-              ><span class="chip">No maps</span
-              ><span class="chip">50 MB output target</span>
-            </div>
-            <div
-              v-if="liveFileFormat !== 'MP4'"
-              class="mt-3 text-amber-200 feedback-note"
-            >
-              <Info :size="15" class="shrink-0" />{{
-                liveFileFormat === "VIDEO"
-                  ? "Format will be confirmed when the camera opens."
-                  : `This browser prefers ${liveFileFormat}. MP4 is not supported for live encoding on this device.`
-              }}
-            </div>
-          </section>
-
-          <section class="card-surface" aria-label="Uploaded file compression">
-            <div class="flex justify-between items-start gap-2 mb-2">
-              <div>
-                <h2 class="font-bold text-white text-sm">
-                  Compress an existing video
-                </h2>
-                <p class="mt-0.5 text-slate-400 text-xs">
-                  MP4, MOV, WebM or another supported format
-                </p>
+          <section ref="compressionArea" class="card-surface" aria-label="Video compression">
+            <div class="flex justify-between items-center gap-2 mb-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <FileVideo2 :size="18" class="text-mint shrink-0" />
+                <h2 class="font-bold text-white text-sm">Compress video</h2>
               </div>
-              <div class="bg-white/5 p-2 rounded-xl text-slate-300">
-                <FolderOpen :size="19" />
-              </div>
+              <HelpTip label="How compression works" message="Choose an existing video, or compress a completed recording from its result card. If a file is already 50 MB or smaller, it is kept as-is. Larger videos are processed locally in one pass, at roughly playback speed. Keep the screen awake. The browser's encoder can occasionally ignore bitrate settings." />
             </div>
             <label for="file-input" class="sr-only">Choose a video file</label>
-            <input
-              id="file-input"
-              ref="fileInput"
-              class="sr-only"
-              type="file"
-              accept="video/*,.mov,.mp4,.webm,.m4v,.mkv"
-              @change="onFileChange"
-            />
-            <button
-              class="mt-2 w-full button-secondary"
-              type="button"
-              :disabled="compressor.busy.value"
-              @click="pickUpload"
-            >
-              <FileVideo2 :size="16" /> Choose video file
+            <input id="file-input" ref="fileInput" class="sr-only" type="file"
+              accept="video/*,.mov,.mp4,.webm,.m4v,.mkv" @change="onFileChange" />
+            <button class="w-full button-secondary" type="button" :disabled="compressor.busy.value" @click="pickUpload">
+              <FileVideo2 :size="16" /> {{ compressor.file.value ? 'Choose different file' : 'Choose video file' }}
             </button>
-            <div v-if="compressor.file.value" class="space-y-2 mt-3">
-              <div
-                class="bg-white/[.03] px-3 py-2.5 border border-edge rounded-xl"
-              >
-                <p class="font-semibold text-white text-xs truncate">
-                  {{ selectedFilename }}
-                </p>
-                <p class="mt-1 text-[11px] text-slate-400">
-                  {{ formatBytes(compressor.file.value.size)
-                  }}<template v-if="compressor.metadata.value">
-                    · {{ formatDuration(compressor.metadata.value.duration) }} ·
-                    {{ compressor.metadata.value.width }}×{{
-                      compressor.metadata.value.height
-                    }}</template
-                  >
-                </p>
-              </div>
 
-              <!--  -->
-              <video
-                v-if="compressor.previewUrl.value"
-                :src="compressor.previewUrl.value"
-                class="bg-black rounded-xl w-full max-h-44"
-                controls
-                playsinline
-                preload="metadata"
-              />
-              <button
-                type="button"
-                class="w-full button-primary"
-                :disabled="
-                  compressor.busy.value ||
-                  !compressor.metadata.value ||
-                  recording
-                "
-                @click="compressor.convert()"
-              >
-                <LoaderCircle
-                  v-if="compressor.busy.value"
-                  :size="17"
-                  class="animate-spin"
-                /><Aperture v-else :size="16" />{{
-                  compressor.busy.value
-                    ? `Converting · pass ${compressor.attempt.value}`
-                    : "Compress / prepare ≤ 50 MB"
-                }}
+            <div v-if="compressor.file.value" class="mt-3 space-y-2">
+              <div class="flex items-start gap-2 bg-white/[.03] px-3 py-2.5 border border-edge rounded-xl min-w-0">
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-white text-xs truncate">{{ selectedFilename }}</p>
+                  <p v-if="compressor.readingMetadata.value" class="mt-1 text-[11px] text-mint flex items-center gap-1"><LoaderCircle :size="12" class="animate-spin" /> Reading video details…</p>
+                  <p class="mt-1 text-[11px] text-slate-400">
+                    {{ formatBytes(compressor.file.value.size) }}
+                    <template v-if="compressor.metadata.value"> · {{ formatDuration(compressor.metadata.value.duration) }} · {{ compressor.metadata.value.width }}×{{ compressor.metadata.value.height }}</template>
+                  </p>
+                </div>
+                <button type="button" class="button-quiet !px-1.5 shrink-0" :disabled="compressor.busy.value" @click="clearCompressor" aria-label="Clear selected video" title="Clear selected video"><X :size="17" /></button>
+              </div>
+              <details v-if="compressor.previewUrl.value" class="compact-disclosure bg-white/[.025] rounded-lg px-2.5 py-1.5">
+                <summary class="flex justify-between items-center text-xs text-slate-400">Preview source <ChevronDown :size="15" class="disclosure-chevron" /></summary>
+                <video :src="compressor.previewUrl.value" class="bg-black rounded-lg w-full max-h-44 mt-2" controls playsinline preload="metadata" />
+              </details>
+              <button type="button" class="w-full button-primary min-h-11"
+                :disabled="compressor.busy.value || compressor.readingMetadata.value || !compressor.metadata.value || recording || isFinalizing"
+                @click="compressor.convert()">
+                <LoaderCircle v-if="compressor.busy.value" :size="17" class="animate-spin" />
+                <Aperture v-else :size="16" />
+                {{ compressor.busy.value ? 'Processing video…' : compressor.file.value.size <= LIMIT_BYTES ? 'Prepare original file' : 'Compress to ≤ 50 MB' }}
               </button>
             </div>
-            <p
-              v-if="recording && compressor.file.value"
-              class="mt-2 text-[11px] text-slate-400"
-            >
-              Stop recording before re-encoding a separate file.
-            </p>
-            <div v-if="compressor.busy.value" class="mt-3">
-              <div class="flex justify-between mb-2 text-slate-400 text-xs">
-                <span>Conversion pass {{ compressor.attempt.value }} of {{ compressor.maxAttempts }}</span
-                ><span>{{ compressor.progress.value }}%</span>
+
+            <div v-if="compressor.busy.value" class="mt-3 processing-card" role="status" aria-live="polite">
+              <div class="flex justify-between items-start gap-2 mb-3">
+                <div class="flex items-center gap-2 min-w-0">
+                  <LoaderCircle :size="19" class="text-mint shrink-0 animate-spin" />
+                  <div class="min-w-0">
+                    <p class="font-semibold text-white text-sm">{{ compressor.stage.value === 'preparing' ? 'Preparing video' : compressor.stage.value === 'finalizing' ? 'Saving output' : 'Compressing · single pass' }}</p>
+                    <p class="text-slate-400 text-[11px] mt-0.5 truncate">{{ compressor.sourceLabel.value }}</p>
+                    <p class="text-slate-400 text-[11px] mt-0.5">{{ compressor.statusDetail.value }}</p>
+                  </div>
+                </div>
+                <span class="font-bold text-mint text-xl tabular-nums">{{ compressor.progress.value }}%</span>
               </div>
-              <div class="bg-slate-700 rounded-full h-2 overflow-hidden">
-                <div
-                  class="bg-mint h-full transition-[width] duration-300"
-                  :style="{ width: compressor.progress.value + '%' }"
-                />
+              <div class="processing-progress" role="progressbar" :aria-valuenow="compressor.progress.value"
+                aria-valuemin="0" aria-valuemax="100" aria-label="Video compression progress">
+                <div class="processing-progress-fill" :style="{ width: compressor.progress.value + '%' }" />
               </div>
-              <button
-                class="mt-2 button-quiet"
-                type="button"
-                @click="compressor.cancel"
-              >
-                Cancel conversion
-              </button>
+              <div class="flex flex-wrap justify-between items-center gap-2 mt-2 text-[11px] text-slate-400">
+                <span v-if="compressor.stage.value === 'encoding' && compressor.remainingSeconds.value != null">~{{ formatDuration(compressor.remainingSeconds.value) }} video remaining</span>
+                <span v-else>{{ compressor.stage.value === 'finalizing' ? 'Finishing file · please keep app open' : 'Starting encoder…' }}</span>
+                <span v-if="compressor.encodedBytes.value">{{ formatBytes(compressor.encodedBytes.value) }} encoded</span>
+              </div>
+              <button class="mt-3 button-quiet !text-slate-200" type="button" @click="compressor.cancel"><X :size="15" /> Cancel conversion</button>
             </div>
-            <p
-              v-if="compressor.error.value"
-              class="mt-3 feedback-error"
-              role="alert"
-            >
-              <CircleAlert :size="16" class="shrink-0" />{{
-                compressor.error.value
-              }}
-            </p>
-            <p
-              v-if="compressor.notice.value"
-              class="mt-3 feedback-note"
-              role="status"
-            >
-              <Info :size="16" class="shrink-0" />{{ compressor.notice.value }}
-            </p>
-            <p
-              v-if="!compressor.file.value && !compressor.busy.value"
-              class="mt-3 text-slate-500 text-xs leading-relaxed"
-            >
-              Use this for existing videos or completed recordings that exceed the 50 MB output target. Conversion runs locally in real time and stays on your device.
-            </p>
-            <button
-              v-if="compressor.file.value && !compressor.busy.value"
-              class="mt-1 button-quiet"
-              type="button"
-              @click="clearCompressor"
-            >
-              Clear selected file
-            </button>
+            <p v-if="recording && compressor.file.value" class="mt-2 text-[11px] text-slate-400">Stop recording before converting another file.</p>
+            <p v-if="compressor.error.value" class="mt-3 feedback-error" role="alert"><CircleAlert :size="16" class="shrink-0" />{{ compressor.error.value }}</p>
+            <p v-if="compressor.notice.value && !compressor.result.value" class="mt-3 feedback-note" role="status"><Info :size="16" class="shrink-0" />{{ compressor.notice.value }}</p>
+            <p v-if="!compressor.file.value && !compressor.busy.value" class="mt-2 text-slate-500 text-xs">Private, on-device processing. No upload required.</p>
+            <p v-if="liveFileFormat !== 'MP4'" class="mt-2 text-slate-500 text-[11px]">{{ liveFileFormat === 'VIDEO' ? 'Output format depends on your browser.' : `Camera encoder: ${liveFileFormat}. MP4 support depends on your browser.` }}</p>
           </section>
           <ResultCard
             :blob="compressor.result.value"
-            label="spv-compressed"
+            label="aepms-compressed"
             :notice="compressor.notice.value"
             @discard="compressor.result.value = null"
             @recompress="

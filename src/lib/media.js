@@ -89,7 +89,9 @@ export function readVideoMetadata(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const video = document.createElement('video');
+    const timeoutId = setTimeout(() => { clean(); reject(new Error('Video details took too long to load. Try another file or browser.')); }, 20_000);
     const clean = () => {
+      clearTimeout(timeoutId);
       video.removeAttribute('src');
       video.load();
       URL.revokeObjectURL(url);

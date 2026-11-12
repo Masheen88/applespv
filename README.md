@@ -63,7 +63,10 @@ The upper-right **Expand** button makes the camera fill the available screen. To
 
 ## File converter
 
-Choose an existing file to convert locally. The app uses an invisible video decoder, canvas frame capture, a silent Web Audio capture path when available, and `MediaRecorder`. Conversion therefore takes approximately the input's playback duration; it is **not** a background transcoder and the screen should remain awake/foreground. It retries with adaptive bitrate/audio bitrate/resolution changes up to 6 times if output exceeds the limit. A browser might not decode some MOV/MKV codecs even if the file can be selected.
+The main screen now presents a compact source file selector, expandable video preview, help `?` popovers, and a real-time progress panel with encoding/finalization steps, percentage, remaining video time, and accumulated encoded bytes. Secondary camera controls are collapsed by default to reduce mobile scrolling.
+
+
+Choose an existing file to convert locally, or compress an oversized completed take using its result card. The app uses an invisible video decoder, canvas frame capture, a silent Web Audio capture path when available, and `MediaRecorder`. Conversion therefore takes approximately the input's playback duration; it is **not** a background transcoder and the screen should remain awake/foreground. Before encoding, it chooses bitrate, resolution, and frame rate from the video's duration and a conservative 42.5 MB size budget. It performs **exactly one pass**, with explicit cancellation, stall detection, and progress through finalization. A browser might not decode some MOV/MKV codecs even if the file can be selected.
 
 Under-50-MB input files (including iPhone MOV clips) are passed through without avoidable conversion; check destination format acceptance. The converter tries to retain audio, but browsers may disallow capturing audio from `<video>` in certain situations. If unavailable, it flags that the output may be silent. Inspect the result before uploading. A service that strictly requires H.264 MP4 may require server-side FFmpeg or a native Android encoding component when `MediaRecorder` cannot encode MP4.
 
@@ -78,7 +81,8 @@ The compact camera preview uses viewport-aware sizing, with address details imme
 - `src/components/SettingsPanel.vue`: camera, length, bitrate, and conversion presets.
 - `src/components/ResultCard.vue`: format/size checks, review, share and download.
 - `src/composables/useRecorder.js`: live camera, uncapped video encoding, pause/resume, torch, zoom and finalization.
-- `src/composables/useCompressor.js`: file transcoding, retries, cancellation, audio track and lifecycle cleanup.
+- `src/composables/useCompressor.js`: single-pass file transcoding, progress stages, cancellation, stall detection, audio track and lifecycle cleanup.
+- `src/lib/compressionPlan.js`: pure duration-aware size/bitrate/resolution calculations and hard-size checking.
 - `src/composables/useLocalSettings.js`: local device preferences/address storage.
 - `src/lib/media.js`: pure size/format/bitrate helpers; covered by `npm test`.
 
@@ -93,4 +97,4 @@ Once deployed over HTTPS, open the site in Chrome and use **Add to Home screen /
 
 ## Recording size behavior
 
-The 50 MB value is an **output/upload target, not a recording limit**. Live recording no longer stops when emitted chunks or an elapsed-time estimate approach 50 MB. Record for as long as needed, then stop normally. If the completed capture is larger than 50 MB, use **Compress ≤ 50 MB** on the result card. The local compressor now uses up to six adaptive passes and lowers bitrate/resolution based on the actual output size.
+The 50 MB value is an **output/upload target, not a recording limit**. Live recording no longer stops when emitted chunks or an elapsed-time estimate approach 50 MB. Record for as long as needed, then stop normally. If the completed capture is larger than 50 MB, use **Compress ≤ 50 MB** on the result card. The local converter now plans bitrate, resolution and frame rate **before** starting, then processes the entire video **once**. It leaves approximately 7.5 MB of headroom below the hard limit. If a browser ignores requested bitrates and produces a file over 50 MB, the app reports that accurately rather than claiming success or restarting multiple full-video passes. The original remains intact.

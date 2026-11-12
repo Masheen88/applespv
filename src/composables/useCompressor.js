@@ -1,35 +1,36 @@
 import { onBeforeUnmount, ref } from 'vue';
-import {
-  AUDIO_BPS, LIMIT_BYTES, clamp, preferredMime,
-  readVideoMetadata, scaledDimensions,
-} from '../lib/media.js';
+import { LIMIT_BYTES, clamp, preferredMime, readVideoMetadata } from '../lib/media.js';
+import { createCompressionPlan } from '../lib/compressionPlan.js';
 
 /**
- * Upload conversion is deliberately separate from live recording.
- * Live capture is encoded by MediaRecorder as it happens; uploaded videos need
- * decode -> draw to canvas -> MediaRecorder re-encode (in real playback time).
- * No CDN, server, maps, FFmpeg download, or external video upload is involved.
+ * Browser-only video conversion. A single duration-aware plan is calculated
+ * before playback: one decode / encode pass, no automatic repeats or uploads.
+ * MediaRecorder cannot guarantee a strict file size; oversized results are
+ * rejected explicitly instead of incorrectly being marked as ready to upload.
  */
-const MAX_COMPRESSION_PASSES = 6;
-const COMPRESSION_TARGET_BYTES = 47_000_000; // Leave room for container/encoder variance under the 50 MB service limit.
-const MIN_VIDEO_BPS = 50_000;
-const MIN_AUDIO_BPS = 24_000;
-
 export function useCompressor(settings) {
   const file = ref(null);
   const metadata = ref(null);
+  const readingMetadata = ref(false);
   const busy = ref(false);
   const progress = ref(0);
-  const attempt = ref(0);
+  const stage = ref('idle');
+  const statusDetail = ref('');
+  const remainingSeconds = ref(null);
+  const encodedBytes = ref(0);
+  const plan = ref(null);
+  const sourceLabel = ref('');
   const error = ref('');
   const notice = ref('');
   const result = ref(null);
   const outputMime = ref('');
   const previewUrl = ref('');
-  const supported = typeof HTMLCanvasElement !== 'undefined' && !!HTMLCanvasElement.prototype.captureStream;
+  const supported = typeof HTMLCanvasElement !== 'undefined'
+    && typeof HTMLCanvasElement.prototype.captureStream === 'function'
+    && typeof MediaRecorder !== 'undefined';
 
   let activeJob = null;
-  let convertVideo = null;
+  let selectionToken = 0;
 
   function cleanupFilePreview() {
     if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
@@ -38,120 +39,111 @@ export function useCompressor(settings) {
 
   async function selectFile(nextFile) {
     if (busy.value) return;
+    const token = ++selectionToken;
     error.value = '';
     notice.value = '';
     result.value = null;
     metadata.value = null;
+    plan.value = null;
+    stage.value = 'idle';
+    progress.value = 0;
     cleanupFilePreview();
     file.value = nextFile || null;
-    if (!nextFile) return;
+    if (!nextFile) { readingMetadata.value = false; return; }
     if (!nextFile.type.startsWith('video/') && !/\.(mov|mp4|webm|m4v|mkv)$/i.test(nextFile.name)) {
-      error.value = 'Choose a video file (MP4, MOV, WebM or a browser-supported format).';
+      error.value = 'Choose a browser-supported video such as MP4, MOV or WebM.';
       file.value = null;
       return;
     }
     previewUrl.value = URL.createObjectURL(nextFile);
-    try { metadata.value = await readVideoMetadata(nextFile); }
-    catch (cause) { error.value = cause.message; }
-  }
-
-  function cancel() {
-    if (activeJob) {
-      activeJob.cancelled = true;
-      convertVideo?.pause();
+    readingMetadata.value = true;
+    try {
+      const nextMetadata = await readVideoMetadata(nextFile);
+      if (token === selectionToken) metadata.value = nextMetadata;
+    } catch (cause) {
+      if (token === selectionToken) error.value = cause?.message || 'Could not load this video.';
+    } finally {
+      if (token === selectionToken) readingMetadata.value = false;
     }
   }
 
-  async function convert(source = file.value, { force = false } = {}) {
+  function cancel() {
+    // AbortController wakes pending playback, metadata and encoder waits. Merely
+    // pausing the video used to strand the old conversion Promise indefinitely.
+    activeJob?.controller.abort();
+  }
+
+  async function convert(source = file.value, { force = false, name = '' } = {}) {
     if (busy.value || !source) return;
     error.value = '';
     notice.value = '';
     result.value = null;
     outputMime.value = '';
     progress.value = 0;
-    attempt.value = 0;
-    const job = { cancelled: false };
+    encodedBytes.value = 0;
+    remainingSeconds.value = null;
+    statusDetail.value = '';
+    plan.value = null;
+    sourceLabel.value = name || source.name || 'Video';
+    const job = { controller: new AbortController() };
     activeJob = job;
     busy.value = true;
+    stage.value = 'preparing';
 
     try {
-      // Avoid fragile/unnecessary iOS re-encoding when a selected video
-      // already fits the upload limit. Preserve the source container and
-      // warn via ResultCard if the receiving system specifically needs MP4.
+      // Keep original audio/container/quality when the video already fits.
       if (!force && source.size <= LIMIT_BYTES) {
         result.value = source;
         outputMime.value = source.type;
         progress.value = 100;
-        notice.value = 'Already under 50 MB — original video preserved without recompression. Confirm the receiving service accepts this format.';
+        stage.value = 'done';
+        notice.value = 'Already within 50 MB. Original file kept without re-encoding.';
         return;
       }
-      if (!supported || typeof MediaRecorder === 'undefined') throw new Error('This browser cannot re-encode a large video (Canvas/MediaRecorder unavailable). Record a new compressed take instead.');
-      const outMime = preferredMime();
-      if (!outMime) throw new Error('Your browser has no compatible video encoder.');
-      const meta = source === file.value ? (metadata.value || await readVideoMetadata(source)) : await readVideoMetadata(source);
-      if (!meta.duration || !meta.width || !meta.height) throw new Error('Cannot determine this video’s duration or dimensions.');
+      if (!supported) throw new Error('This browser does not support local video re-encoding. Try a current Safari or Chrome browser.');
+      const mimeType = preferredMime(); // Empty is fine: older Safari picks its native encoder.
+      const sourceMeta = source === file.value && metadata.value
+        ? metadata.value : await bounded(readVideoMetadata(source), 20_000, 'Reading video details', job.controller.signal);
+      assertNotCancelled(job.controller.signal);
+      const nextPlan = createCompressionPlan(sourceMeta, settings);
+      plan.value = nextPlan;
+      remainingSeconds.value = nextPlan.estimatedSeconds;
+      statusDetail.value = `Preparing ${nextPlan.dimensions.width}×${nextPlan.dimensions.height} video · ${nextPlan.fps} FPS`;
 
-      // Start from a duration-aware target rather than a fixed bitrate. The
-      // compressor aims a few MB below 50 MB so container overhead and encoder
-      // variance do not push the final file back over the service limit.
-      const totalBitsPerSec = (COMPRESSION_TARGET_BYTES * 8) / meta.duration;
-      let audioBps = Math.round(clamp(totalBitsPerSec * 0.16, MIN_AUDIO_BPS, AUDIO_BPS));
-      let videoBps = Math.round(clamp(totalBitsPerSec * 0.86 - audioBps, MIN_VIDEO_BPS, 4_500_000));
-      const [maxW, maxH] = settings.convertResolution.split('x').map(Number);
-      let dimensions = scaledDimensions(meta.width, meta.height, maxW, maxH);
-      let lastBlob = null;
-      let lastHadAudio = true;
-
-      for (let n = 1; n <= MAX_COMPRESSION_PASSES; n++) {
-        if (job.cancelled) throw new Error('Conversion cancelled.');
-        attempt.value = n;
-        progress.value = 0;
-        const output = await transcodeOnce({
-          source, job, dimensions, videoBps, audioBps, fps: Number(settings.fps) || 24,
-          onProgress: (fraction) => { progress.value = Math.floor(clamp(fraction, 0, 1) * 100); },
-          setVideo: (element) => { convertVideo = element; },
-        });
-        if (job.cancelled) throw new Error('Conversion cancelled.');
-        lastBlob = output.blob;
-        lastHadAudio = output.hadAudio;
-        if (lastBlob.size <= LIMIT_BYTES) break;
-
-        // Adapt using the actual miss instead of blindly multiplying by a fixed
-        // value. The 0.92 factor leaves a little extra room for bitrate drift.
-        const fitRatio = COMPRESSION_TARGET_BYTES / Math.max(1, lastBlob.size);
-        const bitrateScale = clamp(fitRatio * 0.92, 0.30, 0.88);
-        videoBps = Math.max(MIN_VIDEO_BPS, Math.floor(videoBps * bitrateScale));
-        audioBps = Math.max(MIN_AUDIO_BPS, Math.floor(audioBps * clamp(fitRatio, 0.55, 0.92)));
-
-        // When bitrate reduction alone is no longer enough, progressively lower
-        // resolution. This is especially important for long captures on mobile
-        // browsers whose encoders do not closely honor requested bitrates.
-        if (n >= 2 || videoBps <= 120_000 || fitRatio < 0.72) {
-          const dimensionScale = clamp(Math.sqrt(fitRatio) * 0.94, 0.62, 0.86);
-          dimensions = scaledDimensions(
-            dimensions.width,
-            dimensions.height,
-            Math.max(320, Math.floor(dimensions.width * dimensionScale)),
-            Math.max(180, Math.floor(dimensions.height * dimensionScale)),
-          );
-        }
+      const output = await transcodeOnce({
+        source, job, mimeType, plan: nextPlan,
+        update: ({ fraction, remaining, bytes, phase, detail }) => {
+          if (job.controller.signal.aborted) return;
+          if (phase) stage.value = phase;
+          if (detail != null) statusDetail.value = detail;
+          if (fraction != null) progress.value = Math.floor(clamp(fraction, 0, 1) * 97);
+          if (remaining != null) remainingSeconds.value = Math.max(0, Math.ceil(remaining));
+          if (bytes != null) encodedBytes.value = bytes;
+        },
+      });
+      assertNotCancelled(job.controller.signal);
+      if (!output.blob.size) throw new Error('The browser produced an empty video. No original footage was changed.');
+      if (output.blob.size > LIMIT_BYTES) {
+        throw new Error(`This browser encoded ${Math.round(output.blob.size / 1_000_000)} MB despite the lower bitrate request. The original remains safe; select 240p in Settings or use a desktop encoder for this clip.`);
       }
-
-      if (!lastBlob || !lastBlob.size) throw new Error('Encoder returned an empty video.');
-      result.value = lastBlob;
-      outputMime.value = lastBlob.type;
+      result.value = output.blob;
+      outputMime.value = output.blob.type;
       progress.value = 100;
-      if (lastBlob.size > LIMIT_BYTES) {
-        notice.value = `Still exceeds 50 MB after ${MAX_COMPRESSION_PASSES} adaptive passes. The original recording is preserved; try a lower maximum output resolution for an extremely long clip.`;
-      } else {
-        notice.value = `Compressed successfully in ${attempt.value} pass${attempt.value > 1 ? 'es' : ''}.`;
-      }
-      if (!lastHadAudio) notice.value += ' Audio could not be captured; output may be silent.';
+      remainingSeconds.value = 0;
+      stage.value = 'done';
+      statusDetail.value = 'Conversion complete';
+      notice.value = 'Single-pass compression complete. Review the result before uploading.';
+      if (!output.hadAudio) notice.value += ' This browser could not capture an audio track; the converted video may be silent.';
     } catch (cause) {
-      error.value = cause?.message || 'Video compression failed.';
+      if (job.controller.signal.aborted || cause?.name === 'AbortError') {
+        stage.value = 'cancelled';
+        notice.value = 'Conversion cancelled. Your original video is unchanged.';
+      } else {
+        stage.value = 'error';
+        error.value = cause?.message || 'Video compression failed.';
+      }
     } finally {
-      activeJob = null;
-      convertVideo = null;
+      if (activeJob === job) activeJob = null;
       busy.value = false;
     }
   }
@@ -159,49 +151,84 @@ export function useCompressor(settings) {
   onBeforeUnmount(() => { cancel(); cleanupFilePreview(); });
 
   return {
-    file, metadata, busy, progress, attempt, error, notice, result,
-    outputMime, previewUrl, supported, maxAttempts: MAX_COMPRESSION_PASSES, selectFile, convert, cancel,
+    file, metadata, readingMetadata, busy, progress, stage, statusDetail, remainingSeconds,
+    encodedBytes, plan, sourceLabel, error, notice, result, outputMime, previewUrl,
+    supported, selectFile, convert, cancel,
   };
 }
 
-async function transcodeOnce({ source, job, dimensions, videoBps, audioBps, fps, onProgress, setVideo }) {
+function cancelledError() {
+  return new DOMException('Conversion cancelled.', 'AbortError');
+}
+
+function assertNotCancelled(signal) {
+  if (signal.aborted) throw cancelledError();
+}
+
+/** Wait for a browser operation with a finite timeout and immediate cancellation. */
+function bounded(promise, milliseconds, label, signal) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let timeout;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      signal.removeEventListener('abort', abort);
+      if (error) reject(error);
+      else resolve(value);
+    };
+    const abort = () => finish(cancelledError());
+    signal.addEventListener('abort', abort, { once: true });
+    timeout = setTimeout(() => finish(new Error(`${label} timed out. Keep the app open and phone awake, then retry.`)), milliseconds);
+    if (signal.aborted) return abort();
+    Promise.resolve(promise).then((value) => finish(null, value), (error) => finish(error));
+  });
+}
+
+async function transcodeOnce({ source, job, mimeType, plan, update }) {
+  const signal = job.controller.signal;
   const sourceUrl = URL.createObjectURL(source);
   const video = document.createElement('video');
-  let canvasStream = null;
   let audioContext = null;
   let audioDestination = null;
-  let audioTrack = null;
+  let canvasStream = null;
   let recorder = null;
-  let raf = null;
-  let endedCleanup = null;
-  let recordingFinished = null;
-  let hadAudio = true;
+  let animationId = null;
+  let monitor = null;
+  let onEndedCleanup = null;
 
   try {
-    // Off-screen rather than display:none: some mobile browsers won't decode
-    // non-rendered media, causing a blank canvas or stalled conversion.
+    // Safari may suspend decoding for elements with display:none. A tiny
+    // non-interactive element keeps decode alive without cluttering the UI.
     video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
     video.playsInline = true;
     video.preload = 'auto';
-    video.style.cssText = 'position:fixed;left:-5px;top:-5px;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1';
-    video.src = sourceUrl;
+    video.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.001;pointer-events:none;z-index:-1';
     document.body.appendChild(video);
-    setVideo(video);
-    await new Promise((resolve, reject) => {
-      video.onloadedmetadata = resolve;
-      video.onerror = () => reject(new Error('Browser cannot decode the source video.'));
+
+    const metadataReady = new Promise((resolve, reject) => {
+      if (video.readyState >= 1) return resolve();
+      video.addEventListener('loadedmetadata', resolve, { once: true });
+      video.addEventListener('error', () => reject(new Error('Unable to decode this video in your browser.')), { once: true });
     });
-    if (job.cancelled) throw new Error('Conversion cancelled.');
+    video.src = sourceUrl;
+    video.load();
+    await bounded(metadataReady, 20_000, 'Loading source video', signal);
+    assertNotCancelled(signal);
 
     const canvas = document.createElement('canvas');
-    canvas.width = dimensions.width;
-    canvas.height = dimensions.height;
-    const context = canvas.getContext('2d', { alpha: false });
-    if (!context) throw new Error('Could not create video canvas.');
-    canvasStream = canvas.captureStream(fps);
+    canvas.width = plan.dimensions.width;
+    canvas.height = plan.dimensions.height;
+    const context = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    if (!context) throw new Error('Could not initialize video conversion canvas.');
+    canvasStream = canvas.captureStream(plan.fps);
+    let audioTrack = null;
 
-    // Audio is routed into a MediaStreamDestination, not the speakers.
-    // This retains sound on browsers that support Web Audio video sources.
+    // Convert media element audio to a MediaStreamDestination instead of
+    // playing sound through the phone. This route works in Chromium and many
+    // Safari releases; failures are clearly disclosed to the user.
     try {
       const AudioConstructor = window.AudioContext || window.webkitAudioContext;
       if (AudioConstructor) {
@@ -209,97 +236,167 @@ async function transcodeOnce({ source, job, dimensions, videoBps, audioBps, fps,
         const sourceNode = audioContext.createMediaElementSource(video);
         audioDestination = audioContext.createMediaStreamDestination();
         sourceNode.connect(audioDestination);
+        // Never send the decoded source to the device speakers.
         const silentMonitor = audioContext.createGain();
         silentMonitor.gain.value = 0;
         sourceNode.connect(silentMonitor);
         silentMonitor.connect(audioContext.destination);
-        await audioContext.resume();
+        await bounded(audioContext.resume(), 8_000, 'Starting audio conversion', signal);
         audioTrack = audioDestination.stream.getAudioTracks()[0] || null;
       }
-    } catch {
-      // Alternate captureStream() path may supply audio after playback begins.
+    } catch (cause) {
+      if (signal.aborted) throw cancelledError();
       audioTrack = null;
+      // A blocked audio context should not prevent a usable video-only result.
+      try { await audioContext?.close(); } catch { /* Best effort. */ }
+      audioContext = null;
     }
 
-    video.muted = false;
-    // Start playback from this user-initiated conversion interaction.
-    await video.play().catch(() => { throw new Error('Video playback was blocked. Tap Convert again and keep the page visible.'); });
-    if (!audioTrack) {
-      try { audioTrack = video.captureStream?.().getAudioTracks()[0] || null; } catch { /* Not exposed. */ }
-    }
-    hadAudio = !!audioTrack;
-    const tracks = [...canvasStream.getVideoTracks(), ...(audioTrack ? [audioTrack] : [])];
-    const combined = new MediaStream(tracks);
-    const mimeType = preferredMime();
-    recorder = new MediaRecorder(combined, {
-      ...(mimeType ? { mimeType } : {}),
-      videoBitsPerSecond: videoBps,
-      ...(audioTrack ? { audioBitsPerSecond: audioBps } : {}),
-    });
-    const chunks = [];
-    recorder.ondataavailable = ({ data }) => { if (data?.size) chunks.push(data); };
-    recordingFinished = new Promise((resolve, reject) => {
-      recorder.onstop = resolve;
-      recorder.onerror = (event) => reject(new Error(event.error?.message || 'Encoder error.'));
-    });
-    const duration = video.duration;
-    const onEnded = new Promise((resolve, reject) => {
-      function done() { detach(); resolve(); }
-      function failed() { detach(); reject(new Error('Could not finish playing the video during conversion.')); }
-      function detach() { video.removeEventListener('ended', done); video.removeEventListener('error', failed); }
-      endedCleanup = detach;
-      video.addEventListener('ended', done);
-      video.addEventListener('error', failed);
-    });
-
-    // Drive the canvas at a capped framerate, maintaining aspect ratio.
-    const draw = () => {
-      if (job.cancelled) { video.pause(); return; }
-      const w = video.videoWidth || dimensions.width;
-      const h = video.videoHeight || dimensions.height;
-      const ratio = Math.min(dimensions.width / w, dimensions.height / h);
-      const drawW = w * ratio;
-      const drawH = h * ratio;
-      context.fillStyle = '#000';
-      context.fillRect(0, 0, dimensions.width, dimensions.height);
-      context.drawImage(video, (dimensions.width - drawW) / 2, (dimensions.height - drawH) / 2, drawW, drawH);
-      onProgress(duration > 0 ? video.currentTime / duration : 0);
-      raf = requestAnimationFrame(draw);
-    };
-    // Draw at least one frame before asking the encoder to capture it.
-    draw();
-    recorder.start(800);
-
-    // Checking cancellation explicitly avoids waiting indefinitely for 'ended'
-    // when Cancel pauses the invisible source element.
-    await Promise.race([
-      onEnded,
-      new Promise((_, reject) => {
-        const poll = () => {
-          if (job.cancelled) { reject(new Error('Conversion cancelled.')); return; }
-          if (video.ended || video.error) return;
-          const id = setTimeout(poll, 100);
-          // Make the timer inaccessible after completion; one last tick is harmless.
-          void id;
-        };
-        poll();
-      }),
+    const combined = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...(audioTrack ? [audioTrack] : []),
     ]);
+    const options = {
+      videoBitsPerSecond: plan.videoBps,
+      ...(audioTrack ? { audioBitsPerSecond: plan.audioBps } : {}),
+      ...(mimeType ? { mimeType } : {}),
+    };
+    try {
+      recorder = new MediaRecorder(combined, options);
+    } catch {
+      // Some iOS builds reject explicit MIME options despite reporting support.
+      recorder = new MediaRecorder(combined, {
+        videoBitsPerSecond: plan.videoBps,
+        ...(audioTrack ? { audioBitsPerSecond: plan.audioBps } : {}),
+      });
+    }
+
+    const chunks = [];
+    let byteCount = 0;
+    let recorderError = null;
+    let finishRecorder;
+    const recorderFinished = new Promise((resolve, reject) => {
+      finishRecorder = { resolve, reject };
+    });
+    recorder.ondataavailable = ({ data }) => {
+      if (!data?.size) return;
+      chunks.push(data);
+      byteCount += data.size;
+      update({ bytes: byteCount });
+    };
+    recorder.onerror = (event) => {
+      recorderError = new Error(`Video encoder failed: ${event.error?.message || 'unknown error'}`);
+    };
+    recorder.onstop = () => {
+      if (recorderError) finishRecorder.reject(recorderError);
+      else finishRecorder.resolve();
+    };
+    // Ensure the recorderFinished promise always has a rejection handler even
+    // if recording stops while the source player is still settling.
+    recorderFinished.catch(() => {});
+
+    let lastPaint = 0;
+    const draw = (now) => {
+      if (signal.aborted) return;
+      if (now - lastPaint >= 1000 / plan.fps && video.readyState >= 2) {
+        lastPaint = now;
+        const ratio = Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+        const drawW = video.videoWidth * ratio;
+        const drawH = video.videoHeight * ratio;
+        context.fillStyle = '#000';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        try { context.drawImage(video, (canvas.width - drawW) / 2, (canvas.height - drawH) / 2, drawW, drawH); }
+        catch { /* Decoder may not have a drawable frame yet. */ }
+      }
+      animationId = requestAnimationFrame(draw);
+    };
+
+    let lastPosition = 0;
+    let lastMovement = Date.now();
+    update({ phase: 'encoding', detail: 'Converting video in one pass', fraction: 0 });
+
+    const playbackFinished = new Promise((resolve, reject) => {
+      let ended = false;
+      const cleanup = () => {
+        video.removeEventListener('ended', endedHandler);
+        video.removeEventListener('error', errorHandler);
+        signal.removeEventListener('abort', abortHandler);
+        clearInterval(monitor);
+        monitor = null;
+      };
+      const complete = (error) => {
+        if (ended) return;
+        ended = true;
+        cleanup();
+        if (error) reject(error);
+        else resolve();
+      };
+      const endedHandler = () => complete();
+      const errorHandler = () => complete(new Error('The source video stopped decoding. Try converting a different file format.'));
+      const abortHandler = () => complete(cancelledError());
+      video.addEventListener('ended', endedHandler);
+      video.addEventListener('error', errorHandler);
+      signal.addEventListener('abort', abortHandler, { once: true });
+      monitor = setInterval(() => {
+        if (signal.aborted) return abortHandler();
+        const position = video.currentTime;
+        if (video.ended || (Number.isFinite(video.duration) && video.duration - position < 0.08 && !video.paused)) {
+          complete();
+          return;
+        }
+        if (position > lastPosition + 0.03) {
+          lastMovement = Date.now();
+          lastPosition = position;
+        }
+        const stalledFor = Date.now() - lastMovement;
+        const remaining = Math.max(0, plan.duration - position);
+        update({
+          fraction: clamp(position / plan.duration, 0, 1), remaining,
+          detail: document.hidden
+            ? 'Keep this tab open and the screen awake to continue.'
+            : stalledFor > 3500 ? 'Waiting for video decoding…' : 'Encoding video · keep this screen open',
+        });
+        if (stalledFor > 25_000) {
+          complete(new Error('Video processing stopped progressing. Keep the app visible and your phone awake, then retry.'));
+        }
+      }, 400);
+      onEndedCleanup = cleanup;
+    });
+    // Attach rejection handling before any video playback/encoder startup.
+    playbackFinished.catch(() => {});
+    recorder.start(900);
+    animationId = requestAnimationFrame(draw);
+    // MediaRecorder starts before playback so short clips do not lose their
+    // first seconds, a race in the previous version of the converter.
+    video.muted = false;
+    try {
+      await bounded(video.play(), 15_000, 'Starting video playback', signal);
+    } catch (cause) {
+      if (signal.aborted) throw cancelledError();
+      if (cause?.name === 'NotAllowedError') throw new Error('Playback was blocked by the browser. Tap Compress directly, keep this tab visible, and try again.');
+      throw cause;
+    }
+    await playbackFinished;
+    assertNotCancelled(signal);
+    update({ phase: 'finalizing', detail: 'Finalizing the video file…', fraction: 1, remaining: 0 });
     if (recorder.state !== 'inactive') recorder.stop();
-    await recordingFinished;
-    return { blob: new Blob(chunks, { type: recorder.mimeType || mimeType || 'video/webm' }), hadAudio };
+    await bounded(recorderFinished, 25_000, 'Finalizing encoded video', signal);
+    assertNotCancelled(signal);
+
+    const actualMime = recorder.mimeType || chunks.find((chunk) => chunk.type)?.type || mimeType || 'application/octet-stream';
+    return { blob: new Blob(chunks, { type: actualMime }), hadAudio: !!audioTrack };
   } finally {
-    // Cancel/retry must always relinquish every camera, audio and object URL resource.
-    if (raf != null) cancelAnimationFrame(raf);
-    endedCleanup?.();
-    try { if (recorder?.state !== 'inactive') recorder.stop(); } catch { /* No-op. */ }
+    if (animationId != null) cancelAnimationFrame(animationId);
+    onEndedCleanup?.();
+    if (monitor != null) clearInterval(monitor);
+    try { if (recorder?.state !== 'inactive') recorder.stop(); } catch { /* Already stopped. */ }
     video.pause();
     video.removeAttribute('src');
     video.load();
     video.remove();
     canvasStream?.getTracks().forEach((track) => track.stop());
     audioDestination?.stream?.getTracks().forEach((track) => track.stop());
-    try { await audioContext?.close(); } catch { /* Audio already closed. */ }
+    try { await audioContext?.close(); } catch { /* Audio was already closed. */ }
     URL.revokeObjectURL(sourceUrl);
   }
 }
